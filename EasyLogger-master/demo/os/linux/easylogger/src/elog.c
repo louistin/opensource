@@ -26,7 +26,7 @@
  * Created on: 2015-04-28
  */
 
-#define LOG_TAG      "elog"
+//#define LOG_TAG      "elog"
 
 #include <elog.h>
 #include <string.h>
@@ -585,7 +585,7 @@ void elog_output(uint8_t level, const char *tag, const char *file, const char *f
         log_len += elog_strcpy(log_len, log_buf + log_len, "(");
         /* package time info */
         if (get_fmt_enabled(level, ELOG_FMT_DIR)) {
-            log_len += elog_strcpy(log_len, log_buf + log_len, file);
+            log_len += elog_strcpy(log_len, log_buf + log_len, FILENAME(file);
             if (get_fmt_enabled(level, ELOG_FMT_FUNC)) {
                 log_len += elog_strcpy(log_len, log_buf + log_len, " ");
             } else if (get_fmt_enabled(level, ELOG_FMT_LINE)) {

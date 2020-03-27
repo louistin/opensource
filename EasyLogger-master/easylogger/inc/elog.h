@@ -33,10 +33,15 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// 清除 __FILE__ 中的路径, 只保留函数名
+// windows #define filename(x) strrchr(x,'\\')?strrchr(x,'\\')+1:x
+#define FILENAME(x) strrchr(x,'/')?strrchr(x,'/')+1:x
 
 /* output log's level */
 #define ELOG_LVL_ASSERT                      0
@@ -218,33 +223,45 @@ void elog_hexdump(const char *name, uint8_t width, uint8_t *buf, uint16_t size);
 #endif
 #if LOG_LVL >= ELOG_LVL_ASSERT
     #define log_a(...)       elog_a(LOG_TAG, __VA_ARGS__)
+    #define LOG_ASSERT(...)       elog_a(LOG_TAG, __VA_ARGS__)
 #else
     #define log_a(...)       ((void)0);
+    #define LOG_ASSERT(...)       ((void)0);
 #endif
 #if LOG_LVL >= ELOG_LVL_ERROR
     #define log_e(...)       elog_e(LOG_TAG, __VA_ARGS__)
+    #define LOG_ERROR(...)       elog_e(LOG_TAG, __VA_ARGS__)
 #else
     #define log_e(...)       ((void)0);
+    #define LOG_ERROR(...)       ((void)0);
 #endif
 #if LOG_LVL >= ELOG_LVL_WARN
     #define log_w(...)       elog_w(LOG_TAG, __VA_ARGS__)
+    #define LOG_WARN(...)       elog_w(LOG_TAG, __VA_ARGS__)
 #else
     #define log_w(...)       ((void)0);
+    #define LOG_WARN(...)       ((void)0);
 #endif
 #if LOG_LVL >= ELOG_LVL_INFO
     #define log_i(...)       elog_i(LOG_TAG, __VA_ARGS__)
+    #define LOG_INFO(...)       elog_i(LOG_TAG, __VA_ARGS__)
 #else
     #define log_i(...)       ((void)0);
+    #define LOG_INFO(...)       ((void)0);
 #endif
 #if LOG_LVL >= ELOG_LVL_DEBUG
     #define log_d(...)       elog_d(LOG_TAG, __VA_ARGS__)
+    #define LOG_DEBUG(...)       elog_d(LOG_TAG, __VA_ARGS__)
 #else
     #define log_d(...)       ((void)0);
+    #define LOG_DEBUG(...)       ((void)0);
 #endif
 #if LOG_LVL >= ELOG_LVL_VERBOSE
     #define log_v(...)       elog_v(LOG_TAG, __VA_ARGS__)
+    #define LOG_VERBOSE(...)       elog_v(LOG_TAG, __VA_ARGS__)
 #else
     #define log_v(...)       ((void)0);
+    #define LOG_VERBOSE(...)        ((void)0);
 #endif
 
 /* assert API short definition */
