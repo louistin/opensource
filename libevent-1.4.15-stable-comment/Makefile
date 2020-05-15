@@ -87,10 +87,7 @@ DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	devpoll.c poll.c select.c epoll.c $(include_HEADERS) ChangeLog \
 	README config.guess config.sub install-sh missing ltmain.sh
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
-	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
-	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
-	$(top_srcdir)/configure.in
+am__aclocal_m4_deps = $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
@@ -145,7 +142,7 @@ libevent_la_OBJECTS = $(am_libevent_la_OBJECTS)
 AM_V_lt = $(am__v_lt_$(V))
 am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
 am__v_lt_0 = --silent
-am__v_lt_1 =
+am__v_lt_1 = 
 libevent_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libevent_la_LDFLAGS) $(LDFLAGS) -o $@
@@ -173,11 +170,11 @@ am__v_P_1 = :
 AM_V_GEN = $(am__v_GEN_$(V))
 am__v_GEN_ = $(am__v_GEN_$(AM_DEFAULT_VERBOSITY))
 am__v_GEN_0 = @echo "  GEN     " $@;
-am__v_GEN_1 =
+am__v_GEN_1 = 
 AM_V_at = $(am__v_at_$(V))
 am__v_at_ = $(am__v_at_$(AM_DEFAULT_VERBOSITY))
 am__v_at_0 = @
-am__v_at_1 =
+am__v_at_1 = 
 DEFAULT_INCLUDES = -I.
 depcomp =
 am__depfiles_maybe =
@@ -190,7 +187,7 @@ LTCOMPILE = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 AM_V_CC = $(am__v_CC_$(V))
 am__v_CC_ = $(am__v_CC_$(AM_DEFAULT_VERBOSITY))
 am__v_CC_0 = @echo "  CC      " $@;
-am__v_CC_1 =
+am__v_CC_1 = 
 CCLD = $(CC)
 LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
@@ -198,7 +195,7 @@ LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 AM_V_CCLD = $(am__v_CCLD_$(V))
 am__v_CCLD_ = $(am__v_CCLD_$(AM_DEFAULT_VERBOSITY))
 am__v_CCLD_0 = @echo "  CCLD    " $@;
-am__v_CCLD_1 =
+am__v_CCLD_1 = 
 SOURCES = $(libevent_la_SOURCES) $(libevent_core_la_SOURCES) \
 	$(libevent_extra_la_SOURCES)
 DIST_SOURCES = $(am__libevent_la_SOURCES_DIST) \
@@ -293,30 +290,30 @@ distuninstallcheck_listfiles = find . -type f -print
 am__distuninstallcheck_listfiles = $(distuninstallcheck_listfiles) \
   | sed 's|^\./|$(prefix)/|' | grep -v '$(infodir)/dir$$'
 distcleancheck_listfiles = find . -type f -print
-ACLOCAL = ${SHELL} /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment/missing aclocal-1.13
+ACLOCAL = ${SHELL} /home/louis/community/opensource/libevent-1.4.15-stable-comment/missing aclocal-1.13
 AMTAR = $${TAR-tar}
 AM_DEFAULT_VERBOSITY = 1
 AR = ar
-AUTOCONF = ${SHELL} /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment/missing autoconf
-AUTOHEADER = ${SHELL} /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment/missing autoheader
-AUTOMAKE = ${SHELL} /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment/missing automake-1.13
+AUTOCONF = ${SHELL} /home/louis/community/opensource/libevent-1.4.15-stable-comment/missing autoconf
+AUTOHEADER = ${SHELL} /home/louis/community/opensource/libevent-1.4.15-stable-comment/missing autoheader
+AUTOMAKE = ${SHELL} /home/louis/community/opensource/libevent-1.4.15-stable-comment/missing automake-1.13
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=none
 CFLAGS = -g -O2 -Wall -fno-strict-aliasing
 CPP = gcc -E
-CPPFLAGS =
+CPPFLAGS = 
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
 DLLTOOL = false
-DSYMUTIL =
-DUMPBIN =
-ECHO_C =
+DSYMUTIL = 
+DUMPBIN = 
+ECHO_C = 
 ECHO_N = -n
-ECHO_T =
+ECHO_T = 
 EGREP = /usr/bin/grep -E
-EXEEXT =
+EXEEXT = 
 FGREP = /usr/bin/grep -F
 GREP = /usr/bin/grep
 INSTALL = /usr/bin/install -c
@@ -325,52 +322,52 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LD = /usr/bin/ld -m elf_x86_64
-LDFLAGS =
+LDFLAGS = 
 LIBOBJS =  ${LIBOBJDIR}select$U.o ${LIBOBJDIR}poll$U.o ${LIBOBJDIR}epoll$U.o ${LIBOBJDIR}signal$U.o
-LIBS = -lnsl -lrt -lresolv
+LIBS = -lnsl -lrt -lresolv 
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIBTOOL_DEPS = ./ltmain.sh
-LIPO =
-LN_S = ln
+LIPO = 
+LN_S = ln -s
 LTLIBOBJS =  ${LIBOBJDIR}select$U.lo ${LIBOBJDIR}poll$U.lo ${LIBOBJDIR}epoll$U.lo ${LIBOBJDIR}signal$U.lo
-MAKEINFO = ${SHELL} /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment/missing makeinfo
+MAKEINFO = ${SHELL} /home/louis/community/opensource/libevent-1.4.15-stable-comment/missing makeinfo
 MANIFEST_TOOL = :
 MKDIR_P = /usr/bin/mkdir -p
 NM = /usr/bin/nm -B
-NMEDIT =
+NMEDIT = 
 OBJDUMP = objdump
 OBJEXT = o
-OTOOL =
-OTOOL64 =
+OTOOL = 
+OTOOL64 = 
 PACKAGE = libevent
-PACKAGE_BUGREPORT =
-PACKAGE_NAME =
-PACKAGE_STRING =
-PACKAGE_TARNAME =
-PACKAGE_URL =
-PACKAGE_VERSION =
+PACKAGE_BUGREPORT = 
+PACKAGE_NAME = 
+PACKAGE_STRING = 
+PACKAGE_TARNAME = 
+PACKAGE_URL = 
+PACKAGE_VERSION = 
 PATH_SEPARATOR = :
 RANLIB = ranlib
 SED = /usr/bin/sed
-SET_MAKE =
+SET_MAKE = 
 SHELL = /bin/sh
 STRIP = strip
 VERSION = 1.4.15
-abs_builddir = /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment
-abs_srcdir = /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment
-abs_top_builddir = /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment
-abs_top_srcdir = /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment
+abs_builddir = /home/louis/community/opensource/libevent-1.4.15-stable-comment
+abs_srcdir = /home/louis/community/opensource/libevent-1.4.15-stable-comment
+abs_top_builddir = /home/louis/community/opensource/libevent-1.4.15-stable-comment
+abs_top_srcdir = /home/louis/community/opensource/libevent-1.4.15-stable-comment
 ac_ct_AR = ar
 ac_ct_CC = gcc
-ac_ct_DUMPBIN =
+ac_ct_DUMPBIN = 
 am__include = include
 am__leading_dot = .
-am__quote =
+am__quote = 
 am__tar = $${TAR-tar} chof - "$$tardir"
 am__untar = $${TAR-tar} xf -
 bindir = ${exec_prefix}/bin
 build = x86_64-unknown-linux-gnu
-build_alias =
+build_alias = 
 build_cpu = x86_64
 build_os = linux-gnu
 build_vendor = unknown
@@ -381,14 +378,14 @@ docdir = ${datarootdir}/doc/${PACKAGE}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
 host = x86_64-unknown-linux-gnu
-host_alias =
+host_alias = 
 host_cpu = x86_64
 host_os = linux-gnu
 host_vendor = unknown
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /home/xmcloud/alpha/community/opensource/libevent-1.4.15-stable-comment/install-sh
+install_sh = ${SHELL} /home/louis/community/opensource/libevent-1.4.15-stable-comment/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -397,15 +394,15 @@ mandir = ${datarootdir}/man
 mkdir_p = $(MKDIR_P)
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /opt/libevent1.4.15
+prefix = /opt/libevent
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 srcdir = .
 sysconfdir = ${prefix}/etc
-target_alias =
-top_build_prefix =
+target_alias = 
+top_build_prefix = 
 top_builddir = .
 top_srcdir = .
 AUTOMAKE_OPTIONS = foreign no-dependencies
@@ -493,11 +490,11 @@ EXTRA_DIST = autogen.sh event.h event-internal.h log.h evsignal.h evdns.3 \
 lib_LTLIBRARIES = libevent.la libevent_core.la libevent_extra.la
 SUBDIRS = . sample test
 #SUBDIRS = . sample
-SYS_LIBS =
+SYS_LIBS = 
 #SYS_LIBS = -lws2_32
-SYS_SRC =
+SYS_SRC = 
 #SYS_SRC = WIN32-Code/win32.c
-SYS_INCLUDES =
+SYS_INCLUDES = 
 #SYS_INCLUDES = -IWIN32-Code
 BUILT_SOURCES = event-config.h
 CORE_SRC = event.c buffer.c evbuffer.c log.c evutil.c $(SYS_SRC)
@@ -566,7 +563,7 @@ config.h: stamp-h1
 stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h1
 	cd $(top_builddir) && $(SHELL) ./config.status config.h
-$(srcdir)/config.h.in:  $(am__configure_deps)
+$(srcdir)/config.h.in:  $(am__configure_deps) 
 	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
 	rm -f stamp-h1
 	touch $@
@@ -609,13 +606,13 @@ clean-libLTLIBRARIES:
 	  rm -f $${locs}; \
 	}
 
-libevent.la: $(libevent_la_OBJECTS) $(libevent_la_DEPENDENCIES) $(EXTRA_libevent_la_DEPENDENCIES)
+libevent.la: $(libevent_la_OBJECTS) $(libevent_la_DEPENDENCIES) $(EXTRA_libevent_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(libevent_la_LINK) -rpath $(libdir) $(libevent_la_OBJECTS) $(libevent_la_LIBADD) $(LIBS)
 
-libevent_core.la: $(libevent_core_la_OBJECTS) $(libevent_core_la_DEPENDENCIES) $(EXTRA_libevent_core_la_DEPENDENCIES)
+libevent_core.la: $(libevent_core_la_OBJECTS) $(libevent_core_la_DEPENDENCIES) $(EXTRA_libevent_core_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(libevent_core_la_LINK) -rpath $(libdir) $(libevent_core_la_OBJECTS) $(libevent_core_la_LIBADD) $(LIBS)
 
-libevent_extra.la: $(libevent_extra_la_OBJECTS) $(libevent_extra_la_DEPENDENCIES) $(EXTRA_libevent_extra_la_DEPENDENCIES)
+libevent_extra.la: $(libevent_extra_la_OBJECTS) $(libevent_extra_la_DEPENDENCIES) $(EXTRA_libevent_extra_la_DEPENDENCIES) 
 	$(AM_V_CCLD)$(libevent_extra_la_LINK) -rpath $(libdir) $(libevent_extra_la_OBJECTS) $(libevent_extra_la_LIBADD) $(LIBS)
 install-binSCRIPTS: $(bin_SCRIPTS)
 	@$(NORMAL_INSTALL)
