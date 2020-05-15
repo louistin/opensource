@@ -106,16 +106,17 @@ const struct eventop epollops = {
 #define INITIAL_NEVENTS 32
 #define MAX_NEVENTS 4096
 
-static void *
-epoll_init(struct event_base *base)
-{
+// 初始化 epfd,
+static void *epoll_init(struct event_base *base) {
   int epfd;
   struct epollop *epollop;
 
+  // 环境变量设置 EVENT_NOEPOLL 时, 需要禁用 EPOLL
   /* Disable epollueue when this environment variable is set */
   if (evutil_getenv("EVENT_NOEPOLL"))
     return (NULL);
 
+  // 调用 epoll 系统调用, 创建 epfd
   /* Initalize the kernel queue */
   if ((epfd = epoll_create(32000)) == -1) {
     if (errno != ENOSYS)
@@ -123,6 +124,7 @@ epoll_init(struct event_base *base)
     return (NULL);
   }
 
+  // TODO: 暂时这里还不是很明白
   FD_CLOSEONEXEC(epfd);
 
   if (!(epollop = calloc(1, sizeof(struct epollop))))

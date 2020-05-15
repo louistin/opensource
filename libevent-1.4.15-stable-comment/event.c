@@ -28,11 +28,6 @@
 #include "config.h"
 #endif
 
-#ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#undef WIN32_LEAN_AND_MEAN
-#endif
 #include <sys/types.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -42,9 +37,7 @@
 #include <sys/queue.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifndef WIN32
 #include <unistd.h>
-#endif
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
@@ -74,10 +67,10 @@ extern const struct eventop kqops;
 #ifdef HAVE_DEVPOLL
 extern const struct eventop devpollops;
 #endif
-#ifdef WIN32
-extern const struct eventop win32ops;
-#endif
 
+// C 语言多态
+// 根据当前支持的系统调用进行对应的初始化
+// 此处的 epollops 对应上面的 extern const struct eventop epollops;
 /* In order of preference */
 static const struct eventop *eventops[] = {
 #ifdef HAVE_EVENT_PORTS
@@ -98,16 +91,13 @@ static const struct eventop *eventops[] = {
 #ifdef HAVE_SELECT
   &selectops,
 #endif
-#ifdef WIN32
-  &win32ops,
-#endif
   NULL
 };
 
 /* Global state */
-struct event_base *current_base = NULL;
+struct event_base *current_base = NULL; // 初始化后全局的 event_base
 extern struct event_base *evsignal_base;
-static int use_monotonic;
+static int use_monotonic;   // 是否使用 monotonic 时间
 
 /* Handle signals - This is a deprecated interface */
 int (*event_sigcb)(void);		/* Signal callback when gotsig is set */
@@ -135,9 +125,8 @@ detect_monotonic(void)
 #endif
 }
 
-static int
-gettime(struct event_base *base, struct timeval *tp)
-{
+// 获取 base 时间
+static int gettime(struct event_base *base, struct timeval *tp) {
   if (base->tv_cache.tv_sec) {
     *tp = base->tv_cache;
     return (0);
@@ -159,37 +148,41 @@ gettime(struct event_base *base, struct timeval *tp)
   return (evutil_gettimeofday(tp, NULL));
 }
 
-struct event_base *
-event_init(void)
-{
+struct event_base * event_init(void) {
   struct event_base *base = event_base_new();
 
+  // 创建 base 后将其赋给全局变量 current_base
   if (base != NULL)
     current_base = base;
 
   return (base);
 }
 
-struct event_base *
-event_base_new(void)
-{
+struct event_base * event_base_new(void) {
   int i;
   struct event_base *base;
 
+  // 在堆上分配内存存储 base
   if ((base = calloc(1, sizeof(struct event_base))) == NULL)
     event_err(1, "%s: calloc", __func__);
 
   event_sigcb = NULL;
   event_gotsig = 0;
 
+  // 检测系统是否支持 monotonic 时钟类型(monotonic 时间自系统开机后一直单调递增, 不计休眠)
   detect_monotonic();
+  // 获取 base 当前时间
   gettime(base, &base->event_tv);
 
+  // 初始化小根堆
   min_heap_ctor(&base->timeheap);
+  // 初始化注册事件队列
   TAILQ_INIT(&base->eventqueue);
+  // 初始化 socket pair
   base->sig.ev_signal_pair[0] = -1;
   base->sig.ev_signal_pair[1] = -1;
 
+  // 根据当前系统所支持的类型初始化真正运行的 eventtop 对象
   base->evbase = NULL;
   for (i = 0; eventops[i] && !base->evbase; i++) {
     base->evsel = eventops[i];
@@ -201,18 +194,18 @@ event_base_new(void)
     event_errx(1, "%s: no event mechanism available", __func__);
 
   if (evutil_getenv("EVENT_SHOW_METHOD"))
-    event_msgx("libevent using: %s\n",
-         base->evsel->name);
+    event_msgx("libevent using: %s\n", base->evsel->name);
 
+  // 初始化优先队列(活跃时事件队列), 开始时初始化 1 个
+  // 设置 event base 优先级 base->nactivequeues
+  // 分配数组 base->activequeues, 数组大小与优先级相同
   /* allocate a single active event queue */
   event_base_priority_init(base, 1);
 
   return (base);
 }
 
-void
-event_base_free(struct event_base *base)
-{
+void event_base_free(struct event_base *base) {
   int i, n_deleted=0;
   struct event *ev;
 
@@ -321,9 +314,8 @@ event_priority_init(int npriorities)
   return event_base_priority_init(current_base, npriorities);
 }
 
-int
-event_base_priority_init(struct event_base *base, int npriorities)
-{
+// event base 优先级初始化
+int event_base_priority_init(struct event_base *base, int npriorities) {
   int i;
 
   if (base->event_count_active)
@@ -332,10 +324,12 @@ event_base_priority_init(struct event_base *base, int npriorities)
   if (npriorities == base->nactivequeues)
     return (0);
 
+  // 清除所有活动队列
   if (base->nactivequeues) {
     for (i = 0; i < base->nactivequeues; ++i) {
       free(base->activequeues[i]);
     }
+
     free(base->activequeues);
   }
 
