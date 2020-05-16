@@ -53,6 +53,7 @@
 #include "evsignal.h"
 #include "log.h"
 
+// 可读写事件, 对 read/write 事件的封装
 /* due to limitations in the epoll interface, we need to keep track of
  * all file descriptors outself.
  */
@@ -61,11 +62,13 @@ struct evepoll {
   struct event *evwrite;
 };
 
+// epoll 事件模型核心数据结构, 对数据进行封装, 所有事件的 read/write 都由此操作
+// 封装 epoll 相关变量
 struct epollop {
-  struct evepoll *fds;
-  int nfds;
-  struct epoll_event *events;
-  int nevents;
+  struct evepoll *fds;  // 记录所有的可读写事件
+  int nfds;   // fd 个数
+  struct epoll_event *events;   // 存储事件的套接字和事件类型数组
+  int nevents;  // 数组大小
   int epfd;
 };
 
@@ -106,7 +109,7 @@ const struct eventop epollops = {
 #define INITIAL_NEVENTS 32
 #define MAX_NEVENTS 4096
 
-// 初始化 epfd,
+// 初始化创建 epfd
 static void *epoll_init(struct event_base *base) {
   int epfd;
   struct epollop *epollop;
@@ -116,7 +119,7 @@ static void *epoll_init(struct event_base *base) {
   if (evutil_getenv("EVENT_NOEPOLL"))
     return (NULL);
 
-  // 调用 epoll 系统调用, 创建 epfd
+  // 调用 epoll 系统调用, 创建 epfd 句柄, 告诉内核这个监听的数目为32000, 其中包含 epfd
   /* Initalize the kernel queue */
   if ((epfd = epoll_create(32000)) == -1) {
     if (errno != ENOSYS)
@@ -132,6 +135,7 @@ static void *epoll_init(struct event_base *base) {
 
   epollop->epfd = epfd;
 
+  // 预先分配 INITIAL_NEVENTS 32 大小的数组, 主要存储事件的套接字和事件类型
   /* Initalize fields */
   epollop->events = malloc(INITIAL_NEVENTS * sizeof(struct epoll_event));
   if (epollop->events == NULL) {
@@ -140,6 +144,7 @@ static void *epoll_init(struct event_base *base) {
   }
   epollop->nevents = INITIAL_NEVENTS;
 
+  // 记录所有可读写事件, 预分配 INITIAL_NFILES 32 大小的数组
   epollop->fds = calloc(INITIAL_NFILES, sizeof(struct evepoll));
   if (epollop->fds == NULL) {
     free(epollop->events);

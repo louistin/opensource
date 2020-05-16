@@ -51,6 +51,8 @@
 #include "evutil.h"
 #include "log.h"
 
+// 创建一对无名的, 相互连接的套接字
+// 这对套接字可用于全双工通信, 每个套套接字可读也可写. fd[0] 写入只能在 fd[1] 读取, 或者反之
 int evutil_socketpair(int family, int type, int protocol, int fd[2]) {
   return socketpair(family, type, protocol, fd);
 }
@@ -168,9 +170,7 @@ evutil_issetugid(void)
 #endif
 }
 
-const char *
-evutil_getenv(const char *varname)
-{
+const char * evutil_getenv(const char *varname){
   if (evutil_issetugid())
     return NULL;
 

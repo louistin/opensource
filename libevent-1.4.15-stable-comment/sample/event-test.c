@@ -84,9 +84,11 @@ int main (int argc, char **argv) {
   /* Initalize the event library */
   event_init();
 
+  // 设置 socket 可读事件, 回调函数 fifo_read()
   /* Initalize one event */
   event_set(&evfifo, socket, EV_READ, fifo_read, &evfifo);
 
+  // 添加事件到活动队列, 无超时设置
   /* Add it to the active events, without a timeout */
   event_add(&evfifo, NULL);
 

@@ -51,16 +51,17 @@ struct event_base {
   void *evbase;
   // event 数目
   int event_count;		/* counts number of total events */
-  // event 活跃数目
+  // event 就绪数目
   int event_count_active;	/* counts number of active events */
 
   int event_gotterm;		/* Set to terminate loop */
   int event_break;		/* Set to terminate loop immediately */
 
   /* active event management */
-  struct event_list **activequeues; // 活动队列
-  int nactivequeues;  // 活动队列数
+  struct event_list **activequeues; // 就绪队列数组, 数组下标就是优先级, 越小优先级越高
+  int nactivequeues;  // 就绪队列数
 
+  // 事件信号句柄信息
   /* signal handling info */
   struct evsignal_info sig;
 

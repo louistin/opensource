@@ -30,12 +30,6 @@
 #include "config.h"
 #endif
 
-#ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <winsock2.h>
-#include <windows.h>
-#undef WIN32_LEAN_AND_MEAN
-#endif
 #include <sys/types.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -67,23 +61,14 @@ struct event_base *evsignal_base = NULL;
 
 static void evsignal_handler(int sig);
 
-#ifdef WIN32
-#define error_is_eagain(err)			\
-  ((err) == EAGAIN || (err) == WSAEWOULDBLOCK)
-#else
 #define error_is_eagain(err) ((err) == EAGAIN)
-#endif
 
 /* Callback for when the signal handler write a byte to our signaling socket */
 static void
 evsignal_cb(int fd, short what, void *arg)
 {
   static char signals[1];
-#ifdef WIN32
-  SSIZE_T n;
-#else
   ssize_t n;
-#endif
 
   n = recv(fd, signals, sizeof(signals), 0);
   if (n == -1) {
@@ -102,11 +87,10 @@ evsignal_cb(int fd, short what, void *arg)
 #define FD_CLOSEONEXEC(x)
 #endif
 
-int
-evsignal_init(struct event_base *base)
-{
+int evsignal_init(struct event_base *base) {
   int i;
 
+  // 信号处理程序将写入套接字的一端以唤醒事件循环, 然后事件循环扫描已发送的信号
   /*
    * Our signal handler is going to write to one end of the socket
    * pair to wake up our event loop.  The event loop then scans for
@@ -114,16 +98,11 @@ evsignal_init(struct event_base *base)
    */
   if (evutil_socketpair(
         AF_UNIX, SOCK_STREAM, 0, base->sig.ev_signal_pair) == -1) {
-#ifdef WIN32
-    /* Make this nonfatal on win32, where sometimes people
-       have localhost firewalled. */
-    event_warn("%s: socketpair", __func__);
-#else
     event_err(1, "%s: socketpair", __func__);
-#endif
     return -1;
   }
 
+  // TODO: 信号这一块暂时看不大懂, 先放着
   FD_CLOSEONEXEC(base->sig.ev_signal_pair[0]);
   FD_CLOSEONEXEC(base->sig.ev_signal_pair[1]);
   base->sig.sh_old = NULL;
@@ -134,8 +113,8 @@ evsignal_init(struct event_base *base)
   for (i = 0; i < NSIG; ++i)
     TAILQ_INIT(&base->sig.evsigevents[i]);
 
-        evutil_make_socket_nonblocking(base->sig.ev_signal_pair[0]);
-        evutil_make_socket_nonblocking(base->sig.ev_signal_pair[1]);
+  evutil_make_socket_nonblocking(base->sig.ev_signal_pair[0]);
+  evutil_make_socket_nonblocking(base->sig.ev_signal_pair[1]);
 
   event_set(&base->sig.ev_signal, base->sig.ev_signal_pair[1],
     EV_READ | EV_PERSIST, evsignal_cb, &base->sig.ev_signal);

@@ -220,16 +220,19 @@ struct event {
 
   int ev_fd;
   short ev_events;
-  short ev_ncalls;
+  short ev_ncalls;  // 事件就绪执行时, 调用 ev_callback 的次数, 通常为 1
+  // 指针, 通常指向 ev_ncalls 或 NULL
   short *ev_pncalls;	/* Allows deletes in callback */
 
-  struct timeval ev_timeout;
+  struct timeval ev_timeout;  // 事件超时时间
 
+  // 优先级, 越小优先级越高
   int ev_pri;		/* smaller numbers are higher priority */
 
   void (*ev_callback)(int, short, void *arg);
   void *ev_arg;
 
+  // 记录当前激活事件的类型
   int ev_res;		/* result passed to event callback */
   int ev_flags;
 };

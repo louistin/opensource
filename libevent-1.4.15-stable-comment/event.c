@@ -125,7 +125,7 @@ detect_monotonic(void)
 #endif
 }
 
-// 获取 base 时间
+// 获取 base 时间, 有缓存优先使用缓存事件, 没有则获取当前时间
 static int gettime(struct event_base *base, struct timeval *tp) {
   if (base->tv_cache.tv_sec) {
     *tp = base->tv_cache;
@@ -361,10 +361,8 @@ event_haveevents(struct event_base *base)
  * process before higher priorities.  Low priority events can starve high
  * priority ones.
  */
-
-static void
-event_process_active(struct event_base *base)
-{
+// 就绪事件处理
+static void event_process_active(struct event_base *base) {
   struct event *ev;
   struct event_list *activeq = NULL;
   int i;
@@ -379,11 +377,15 @@ event_process_active(struct event_base *base)
 
   assert(activeq != NULL);
 
+  // 处理就绪事件队列
   for (ev = TAILQ_FIRST(activeq); ev; ev = TAILQ_FIRST(activeq)) {
-    if (ev->ev_events & EV_PERSIST)
+    // 持续化事件, 从就绪事件队列中删除
+    // 非持续化事件, 直接从事件队列中删除
+    if (ev->ev_events & EV_PERSIST) {
       event_queue_remove(base, ev, EVLIST_ACTIVE);
-    else
+    } else {
       event_del(ev);
+    }
 
     /* Allows deletes to work */
     ncalls = ev->ev_ncalls;
@@ -391,12 +393,16 @@ event_process_active(struct event_base *base)
     while (ncalls) {
       ncalls--;
       ev->ev_ncalls = ncalls;
+
+      // 调用事件处理回调函数, 执行处理
       (*ev->ev_callback)((int)ev->ev_fd, ev->ev_res, ev->ev_arg);
+
       if (event_gotsig || base->event_break) {
-          ev->ev_pncalls = NULL;
+        ev->ev_pncalls = NULL;
         return;
       }
     }
+
     ev->ev_pncalls = NULL;
   }
 }
@@ -405,15 +411,11 @@ event_process_active(struct event_base *base)
  * Wait continously for events.  We exit only if no events are left.
  */
 
-int
-event_dispatch(void)
-{
+int event_dispatch(void) {
   return (event_loop(0));
 }
 
-int
-event_base_dispatch(struct event_base *event_base)
-{
+int event_base_dispatch(struct event_base *event_base) {
   return (event_base_loop(event_base, 0));
 }
 
@@ -467,34 +469,36 @@ event_base_loopbreak(struct event_base *event_base)
 
 /* not thread safe */
 
-int
-event_loop(int flags)
-{
+int event_loop(int flags) {
   return event_base_loop(current_base, flags);
 }
 
-int
-event_base_loop(struct event_base *base, int flags)
-{
-  const struct eventop *evsel = base->evsel;
-  void *evbase = base->evbase;
+int event_base_loop(struct event_base *base, int flags) {
+  const struct eventop *evsel = base->evsel;  // 选择 epoll 机制
+  void *evbase = base->evbase;  // epollop 对象
   struct timeval tv;
   struct timeval *tv_p;
   int res, done;
 
+  // 清除时间缓存, 后面 gettime() 获取当前系统时间而非缓存时间
   /* clear time cache */
   base->tv_cache.tv_sec = 0;
 
-  if (base->sig.ev_signal_added)
+  // evsignal_base 全局变量, 后续关于信号的一些操作默认使用此 base
+  if (base->sig.ev_signal_added) {
     evsignal_base = base;
+  }
+
   done = 0;
   while (!done) {
+    // 中断循环标识
     /* Terminate the loop if we have been asked to */
     if (base->event_gotterm) {
       base->event_gotterm = 0;
       break;
     }
 
+    // 中断循环标识
     if (base->event_break) {
       base->event_break = 0;
       break;
@@ -512,9 +516,13 @@ event_base_loop(struct event_base *base, int flags)
       }
     }
 
+    // 获取精确 timeout
+    // 采用 monotonic 时钟类型时此函数不起作用
     timeout_correct(base, &tv);
 
     tv_p = &tv;
+    // 当前如果没有就绪事件, 获取接下来的最小等待时间
+    // 有就绪事件, 无需等待 epoll_wait, 清空定时器
     if (!base->event_count_active && !(flags & EVLOOP_NONBLOCK)) {
       timeout_next(base, &tv_p);
     } else {
@@ -525,32 +533,48 @@ event_base_loop(struct event_base *base, int flags)
       evutil_timerclear(&tv);
     }
 
+    // 当前无事件注册, 直接退出
     /* If we have no events, we just exit */
     if (!event_haveevents(base)) {
       event_debug(("%s: no events registered.", __func__));
       return (1);
     }
 
+    // 更新 base 时间
     /* update last old time */
     gettime(base, &base->event_tv);
 
+    // 清除时间缓存
     /* clear time cache */
     base->tv_cache.tv_sec = 0;
 
+    // TODO: 此处需要跟踪分析
+    // 内部使用 epoll_wait() 等待事件, 仅处理读写事件, 信号事件在 evsignal_process()
+    // 函数处理
     res = evsel->dispatch(base, evbase, tv_p);
 
-    if (res == -1)
+    if (res == -1) {
       return (-1);
+    }
+
+    // 获取当前时间, 更新缓存, 缓存的作用是无需调用系统调用获取时间, 省时
     gettime(base, &base->tv_cache);
 
+    // 从 timeheap 小根堆中获取超时事件, 将其从 I/O 队列中删除, 同时加入到就绪队列
     timeout_process(base);
 
+    // 就绪事件处理
     if (base->event_count_active) {
+      // 就绪事件处理
+      // 根据优先级获取就绪事件队列, 调用注册的回调函数处理
       event_process_active(base);
-      if (!base->event_count_active && (flags & EVLOOP_ONCE))
+      if (!base->event_count_active && (flags & EVLOOP_ONCE)) {
         done = 1;
-    } else if (flags & EVLOOP_NONBLOCK)
+      }
+
+    } else if (flags & EVLOOP_NONBLOCK) {
       done = 1;
+    }
   }
 
   /* clear time cache */
@@ -635,10 +659,8 @@ event_base_once(struct event_base *base, int fd, short events,
   return (0);
 }
 
-void
-event_set(struct event *ev, int fd, short events,
-    void (*callback)(int, short, void *), void *arg)
-{
+void event_set(struct event *ev, int fd, short events,
+    void (*callback)(int, short, void *), void *arg) {
   /* Take the current base - caller needs to set the real base later */
   ev->ev_base = current_base;
 
@@ -651,8 +673,10 @@ event_set(struct event *ev, int fd, short events,
   ev->ev_ncalls = 0;
   ev->ev_pncalls = NULL;
 
+  // 小根堆元素初始化
   min_heap_elem_init(ev);
 
+  // 默认设置为中等优先级
   /* by default, we put new events into the middle priority */
   if(current_base)
     ev->ev_pri = current_base->nactivequeues/2;
@@ -720,9 +744,7 @@ event_pending(struct event *ev, short event, struct timeval *tv)
   return (flags & event);
 }
 
-int
-event_add(struct event *ev, const struct timeval *tv)
-{
+int event_add(struct event *ev, const struct timeval *tv) {
   struct event_base *base = ev->ev_base;
   const struct eventop *evsel = base->evsel;
   void *evbase = base->evbase;
@@ -743,8 +765,7 @@ event_add(struct event *ev, const struct timeval *tv)
    * failure on any step, we should not change any state.
    */
   if (tv != NULL && !(ev->ev_flags & EVLIST_TIMEOUT)) {
-    if (min_heap_reserve(&base->timeheap,
-      1 + min_heap_size(&base->timeheap)) == -1)
+    if (min_heap_reserve(&base->timeheap, 1 + min_heap_size(&base->timeheap)) == -1)
       return (-1);  /* ENOMEM == errno */
   }
 
@@ -798,15 +819,12 @@ event_add(struct event *ev, const struct timeval *tv)
   return (res);
 }
 
-int
-event_del(struct event *ev)
-{
+int event_del(struct event *ev) {
   struct event_base *base;
   const struct eventop *evsel;
   void *evbase;
 
-  event_debug(("event_del: %p, callback %p",
-     ev, ev->ev_callback));
+  event_debug(("event_del: %p, callback %p", ev, ev->ev_callback));
 
   /* An event without a base has not been added */
   if (ev->ev_base == NULL)
@@ -838,9 +856,7 @@ event_del(struct event *ev)
   return (0);
 }
 
-void
-event_active(struct event *ev, int res, short ncalls)
-{
+void event_active(struct event *ev, int res, short ncalls) {
   /* We get different kinds of events, add them together */
   if (ev->ev_flags & EVLIST_ACTIVE) {
     ev->ev_res |= res;
@@ -850,30 +866,35 @@ event_active(struct event *ev, int res, short ncalls)
   ev->ev_res = res;
   ev->ev_ncalls = ncalls;
   ev->ev_pncalls = NULL;
+  // 将事件加入就绪事件队列
   event_queue_insert(ev->ev_base, ev, EVLIST_ACTIVE);
 }
 
-static int
-timeout_next(struct event_base *base, struct timeval **tv_p)
-{
+// 获取接下来最小的等待时间(即 最近即将超时事件的超时时间 - 当前时间)
+static int timeout_next(struct event_base *base, struct timeval **tv_p) {
   struct timeval now;
   struct event *ev;
   struct timeval *tv = *tv_p;
 
+  // 没有基于时间的事件就绪, 直接返回
+  // 有则获取小根堆 root 节点, 即最小值的节点
   if ((ev = min_heap_top(&base->timeheap)) == NULL) {
     /* if no time-based events are active wait for I/O */
     *tv_p = NULL;
     return (0);
   }
 
+  // 获取 base 时间, 有缓存优先使用缓存事件, 没有则获取当前时间
   if (gettime(base, &now) == -1)
     return (-1);
 
+  // 事件超时时间小于等于当前时间, 即已经超时, 清除定时器
   if (evutil_timercmp(&ev->ev_timeout, &now, <=)) {
     evutil_timerclear(tv);
     return (0);
   }
 
+  // 事件未超时, 获取距离超时的剩余时间
   evutil_timersub(&ev->ev_timeout, &now, tv);
 
   assert(tv->tv_sec >= 0);
@@ -889,9 +910,7 @@ timeout_next(struct event_base *base, struct timeval **tv_p)
  * monotonic.
  */
 
-static void
-timeout_correct(struct event_base *base, struct timeval *tv)
-{
+static void timeout_correct(struct event_base *base, struct timeval *tv) {
   struct event **pev;
   unsigned int size;
   struct timeval off;
@@ -924,9 +943,8 @@ timeout_correct(struct event_base *base, struct timeval *tv)
   base->event_tv = *tv;
 }
 
-void
-timeout_process(struct event_base *base)
-{
+// 超时处理
+void timeout_process(struct event_base *base) {
   struct timeval now;
   struct event *ev;
 
@@ -935,6 +953,8 @@ timeout_process(struct event_base *base)
 
   gettime(base, &now);
 
+  // 循环从小根堆中获取事件, 判断是否超时, 如果超时则从 I/O 队列中将其删除, 并将其加入到
+  // 就绪事件队列
   while ((ev = min_heap_top(&base->timeheap))) {
     if (evutil_timercmp(&ev->ev_timeout, &now, >))
       break;
@@ -942,15 +962,13 @@ timeout_process(struct event_base *base)
     /* delete this event from the I/O queues */
     event_del(ev);
 
-    event_debug(("timeout_process: call %p",
-       ev->ev_callback));
+    event_debug(("timeout_process: call %p", ev->ev_callback));
+    // 事件就绪, 加入就绪队列
     event_active(ev, EV_TIMEOUT, 1);
   }
 }
 
-void
-event_queue_remove(struct event_base *base, struct event *ev, int queue)
-{
+void event_queue_remove(struct event_base *base, struct event *ev, int queue) {
   if (!(ev->ev_flags & queue))
     event_errx(1, "%s: %p(fd %d) not on queue %x", __func__,
          ev, ev->ev_fd, queue);
@@ -965,8 +983,7 @@ event_queue_remove(struct event_base *base, struct event *ev, int queue)
     break;
   case EVLIST_ACTIVE:
     base->event_count_active--;
-    TAILQ_REMOVE(base->activequeues[ev->ev_pri],
-        ev, ev_active_next);
+    TAILQ_REMOVE(base->activequeues[ev->ev_pri], ev, ev_active_next);
     break;
   case EVLIST_TIMEOUT:
     min_heap_erase(&base->timeheap, ev);
@@ -976,9 +993,8 @@ event_queue_remove(struct event_base *base, struct event *ev, int queue)
   }
 }
 
-void
-event_queue_insert(struct event_base *base, struct event *ev, int queue)
-{
+// 将事件加入对应的队列中
+void event_queue_insert(struct event_base *base, struct event *ev, int queue) {
   if (ev->ev_flags & queue) {
     /* Double insertion is possible for active events */
     if (queue & EVLIST_ACTIVE)
@@ -998,8 +1014,7 @@ event_queue_insert(struct event_base *base, struct event *ev, int queue)
     break;
   case EVLIST_ACTIVE:
     base->event_count_active++;
-    TAILQ_INSERT_TAIL(base->activequeues[ev->ev_pri],
-        ev,ev_active_next);
+    TAILQ_INSERT_TAIL(base->activequeues[ev->ev_pri], ev,ev_active_next);
     break;
   case EVLIST_TIMEOUT: {
     min_heap_push(&base->timeheap, ev);
