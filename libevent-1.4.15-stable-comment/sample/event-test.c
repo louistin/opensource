@@ -92,8 +92,8 @@ int main (int argc, char **argv) {
   /* Add it to the active events, without a timeout */
   event_add(&evfifo, NULL);
 
+  // 事件调度, 分发
   event_dispatch();
 
   return (0);
 }
-

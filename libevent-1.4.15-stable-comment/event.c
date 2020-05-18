@@ -91,7 +91,7 @@ static const struct eventop *eventops[] = {
 #ifdef HAVE_SELECT
   &selectops,
 #endif
-  NULL
+  NULL  // 以 NULL 为数组结尾, 遍历时不需要依靠计算数组大小就可以在结尾处结束遍历
 };
 
 /* Global state */
@@ -114,9 +114,8 @@ static int	timeout_next(struct event_base *, struct timeval **);
 static void	timeout_process(struct event_base *);
 static void	timeout_correct(struct event_base *, struct timeval *);
 
-static void
-detect_monotonic(void)
-{
+// 设置 use_monotonic = 1
+static void detect_monotonic(void) {
 #if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
   struct timespec	ts;
 
@@ -162,7 +161,7 @@ struct event_base * event_base_new(void) {
   int i;
   struct event_base *base;
 
-  // 在堆上分配内存存储 base
+  // 在堆上分配内存存储 base, 所有字段初始化为 0
   if ((base = calloc(1, sizeof(struct event_base))) == NULL)
     event_err(1, "%s: calloc", __func__);
 
@@ -170,33 +169,40 @@ struct event_base * event_base_new(void) {
   event_gotsig = 0;
 
   // 检测系统是否支持 monotonic 时钟类型(monotonic 时间自系统开机后一直单调递增, 不计休眠)
+  // 设置 use_monotonic = 1
   detect_monotonic();
   // 获取 base 当前时间
+  // base->tv_cache.tv_sec 非 0, 则赋给 base->event_tv; 否则获取系统时间
   gettime(base, &base->event_tv);
 
-  // 初始化小根堆
+  // 初始化定时事件小根堆 base->timeheap
   min_heap_ctor(&base->timeheap);
-  // 初始化注册事件队列
+  // 初始化注册事件队列 base->eventqueue
   TAILQ_INIT(&base->eventqueue);
-  // 初始化 socket pair
+  // 初始化信号事件管理 base->sig
+  // socket pair 全双工无名套接字
   base->sig.ev_signal_pair[0] = -1;
   base->sig.ev_signal_pair[1] = -1;
 
-  // 根据当前系统所支持的类型初始化真正运行的 eventtop 对象
+  // 初始化 I/O 多路复用 base->evbase
   base->evbase = NULL;
+  // 根据当前系统所支持的类型初始化真正运行的 eventtop 对象
+  // 选取 eventops 数组中的第一个 I/O 多路复用机制
   for (i = 0; eventops[i] && !base->evbase; i++) {
-    base->evsel = eventops[i];
+    base->evsel = eventops[i];  // 初始化 base->evsel, I/O 多路复用机制使用 epoll
 
-    base->evbase = base->evsel->init(base);
+    base->evbase = base->evsel->init(base); // 初始化 base->evbase, 使用 epoll 的 init
   }
 
+  // 判断上一步执行结果, 没有 I/O 多路复用为报错
   if (base->evbase == NULL)
     event_errx(1, "%s: no event mechanism available", __func__);
 
+  // 调用 getenv() 获取环境变量 EVENT_SHOW_METHOD
   if (evutil_getenv("EVENT_SHOW_METHOD"))
     event_msgx("libevent using: %s\n", base->evsel->name);
 
-  // 初始化优先队列(活跃时事件队列), 开始时初始化 1 个
+  // 初始化优先级队列(就绪事件队列), 初始化优先级为 1 (即优先级队列数也为 1)
   // 设置 event base 优先级 base->nactivequeues
   // 分配数组 base->activequeues, 数组大小与优先级相同
   /* allocate a single active event queue */
@@ -314,17 +320,19 @@ event_priority_init(int npriorities)
   return event_base_priority_init(current_base, npriorities);
 }
 
-// event base 优先级初始化
+// event base 优先级初始化, 值越小优先级越高
 int event_base_priority_init(struct event_base *base, int npriorities) {
   int i;
 
+  // 当前base 上有就绪的 event, 不能设置优先级
   if (base->event_count_active)
     return (-1);
 
+  // 设置的优先级和当前优先级相同, 直接返回
   if (npriorities == base->nactivequeues)
     return (0);
 
-  // 清除所有活动队列
+  // 不同, 则先释放原有的 base->nactivequeues
   if (base->nactivequeues) {
     for (i = 0; i < base->nactivequeues; ++i) {
       free(base->activequeues[i]);
@@ -334,12 +342,14 @@ int event_base_priority_init(struct event_base *base, int npriorities) {
   }
 
   /* Allocate our priority queues */
-  base->nactivequeues = npriorities;
+  base->nactivequeues = npriorities;  // 设置优先级, 就绪队列数与优先级相同
+  // 在堆上分配就绪队列数组
   base->activequeues = (struct event_list **)
       calloc(base->nactivequeues, sizeof(struct event_list *));
   if (base->activequeues == NULL)
     event_err(1, "%s: calloc", __func__);
 
+  // 为就绪队列数组中的每个成员队列(链表)分配内存空间并初始化
   for (i = 0; i < base->nactivequeues; ++i) {
     base->activequeues[i] = malloc(sizeof(struct event_list));
     if (base->activequeues[i] == NULL)
@@ -613,10 +623,8 @@ event_once(int fd, short events,
 }
 
 /* Schedules an event once */
-int
-event_base_once(struct event_base *base, int fd, short events,
-    void (*callback)(int, short, void *), void *arg, const struct timeval *tv)
-{
+int event_base_once(struct event_base *base, int fd, short events,
+    void (*callback)(int, short, void *), void *arg, const struct timeval *tv) {
   struct event_once *eonce;
   struct timeval etv;
   int res;
@@ -662,29 +670,30 @@ event_base_once(struct event_base *base, int fd, short events,
 void event_set(struct event *ev, int fd, short events,
     void (*callback)(int, short, void *), void *arg) {
   /* Take the current base - caller needs to set the real base later */
-  ev->ev_base = current_base;
+  ev->ev_base = current_base; // 设置 event 属于当前 base, 全局变量 current_base 在 event_init() 中设置
 
-  ev->ev_callback = callback;
-  ev->ev_arg = arg;
+  ev->ev_callback = callback; // 设置回调函数
+  ev->ev_arg = arg; // 设置回调函数的传参
   ev->ev_fd = fd;
   ev->ev_events = events;
   ev->ev_res = 0;
-  ev->ev_flags = EVLIST_INIT;
+  ev->ev_flags = EVLIST_INIT; // 设置 event 状态
   ev->ev_ncalls = 0;
   ev->ev_pncalls = NULL;
 
-  // 小根堆元素初始化
+  // 小根堆元素初始化索引为 -1
   min_heap_elem_init(ev);
 
   // 默认设置为中等优先级
   /* by default, we put new events into the middle priority */
-  if(current_base)
+  if (current_base) {
     ev->ev_pri = current_base->nactivequeues/2;
+  }
 }
 
-int
-event_base_set(struct event_base *base, struct event *ev)
-{
+// 对新建的状态为 EVLIST_INIT 的 event 设置所属 ev_base
+// 只有一个事件时, 可以不用设置, event_init() 中已经设置了全局
+int event_base_set(struct event_base *base, struct event *ev) {
   /* Only innocent events may be assigned to a different base */
   if (ev->ev_flags != EVLIST_INIT)
     return (-1);
@@ -699,14 +708,15 @@ event_base_set(struct event_base *base, struct event *ev)
  * Set's the priority of an event - if an event is already scheduled
  * changing the priority is going to fail.
  */
+// 设置 event 优先级, 但是不能对 EVLIST_ACTIVE event 设置
+int event_priority_set(struct event *ev, int pri) {
+  if (ev->ev_flags & EVLIST_ACTIVE) {
+    return (-1);
+  }
 
-int
-event_priority_set(struct event *ev, int pri)
-{
-  if (ev->ev_flags & EVLIST_ACTIVE)
+  if (pri < 0 || pri >= ev->ev_base->nactivequeues) {
     return (-1);
-  if (pri < 0 || pri >= ev->ev_base->nactivequeues)
-    return (-1);
+  }
 
   ev->ev_pri = pri;
 
@@ -744,6 +754,7 @@ event_pending(struct event *ev, short event, struct timeval *tv)
   return (flags & event);
 }
 
+// 将 event 添加到 events 事件队列, 注册事件
 int event_add(struct event *ev, const struct timeval *tv) {
   struct event_base *base = ev->ev_base;
   const struct eventop *evsel = base->evsel;
@@ -764,22 +775,30 @@ int event_add(struct event *ev, const struct timeval *tv) {
    * prepare for timeout insertion further below, if we get a
    * failure on any step, we should not change any state.
    */
+  // tv != NULL, 且 event 当前状态为 EVLIST_TIMEOUT
+  // 小根堆根据需要是否执行扩容
   if (tv != NULL && !(ev->ev_flags & EVLIST_TIMEOUT)) {
     if (min_heap_reserve(&base->timeheap, 1 + min_heap_size(&base->timeheap)) == -1)
       return (-1);  /* ENOMEM == errno */
   }
 
+  // I/O 事件及信号事件执行注册到 epoll, 并将事件加入注册事件队列 base->eventqueue
+  // EV_TIMEOUT 超时事件不执行
+  // 事件处于 EVLIST_INSERTED 已注册事件队列中, EVLIST_ACTIVE 就绪事件队列中, 不执行
   if ((ev->ev_events & (EV_READ|EV_WRITE|EV_SIGNAL)) &&
       !(ev->ev_flags & (EVLIST_INSERTED|EVLIST_ACTIVE))) {
     res = evsel->add(evbase, ev);
-    if (res != -1)
+    if (res != -1) {
+      // 加入已注册事件队列
       event_queue_insert(base, ev, EVLIST_INSERTED);
+    }
   }
 
   /*
-   * we should change the timout state only if the previous event
+   * we should change the timeout state only if the previous event
    * addition succeeded.
    */
+  // 前面事件添加成功时, 修改 timeout 状态
   if (res != -1 && tv != NULL) {
     struct timeval now;
 
@@ -787,12 +806,16 @@ int event_add(struct event *ev, const struct timeval *tv) {
      * we already reserved memory above for the case where we
      * are not replacing an exisiting timeout.
      */
-    if (ev->ev_flags & EVLIST_TIMEOUT)
+    // 当前事件在 time 堆中, 则将其从小根堆中清除
+    if (ev->ev_flags & EVLIST_TIMEOUT) {
       event_queue_remove(base, ev, EVLIST_TIMEOUT);
+    }
 
     /* Check if it is active due to a timeout.  Rescheduling
      * this timeout before the callback can be executed
      * removes it from the active list. */
+    // 判断事件是否已超时而处于就绪列表中, 在执行回调前重新计划此超时会将其从就绪列表中删除
+    // 这里是因为 event_add 函数会在事件被触发后再次调用, 此时就需要先将事件从就绪列表中删除
     if ((ev->ev_flags & EVLIST_ACTIVE) &&
         (ev->ev_res & EV_TIMEOUT)) {
       /* See if we are just active executing this
@@ -806,6 +829,7 @@ int event_add(struct event *ev, const struct timeval *tv) {
       event_queue_remove(base, ev, EVLIST_ACTIVE);
     }
 
+    // 根据 tv 值, 重新设置事件超时时间
     gettime(base, &now);
     evutil_timeradd(&now, tv, &ev->ev_timeout);
 
@@ -813,6 +837,7 @@ int event_add(struct event *ev, const struct timeval *tv) {
        "event_add: timeout in %ld seconds, call %p",
        tv->tv_sec, ev->ev_callback));
 
+    // 将事件加入到小根堆中
     event_queue_insert(base, ev, EVLIST_TIMEOUT);
   }
 

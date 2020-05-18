@@ -174,28 +174,27 @@ extern "C" {
 /* For int types. */
 #include <evutil.h>
 
-#ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#undef WIN32_LEAN_AND_MEAN
-typedef unsigned char u_char;
-typedef unsigned short u_short;
-#endif
-
+// event.evflags
+// event 在 time 堆中
 #define EVLIST_TIMEOUT	0x01
+// event 在已注册事件链表中
 #define EVLIST_INSERTED	0x02
 #define EVLIST_SIGNAL	0x04
+// event 在就绪链表中
 #define EVLIST_ACTIVE	0x08
 #define EVLIST_INTERNAL	0x10
+// event 已被初始化
 #define EVLIST_INIT	0x80
 
 /* EVLIST_X_ Private space: 0x1000-0xf000 */
 #define EVLIST_ALL	(0xf000 | 0x9f)
 
+// event.ev_events
 #define EV_TIMEOUT	0x01
 #define EV_READ		0x02
 #define EV_WRITE	0x04
 #define EV_SIGNAL	0x08
+// 持久化事件
 #define EV_PERSIST	0x10	/* Persistant event */
 
 /* Fix so that ppl dont have to run with <sys/queue.h> */
@@ -210,31 +209,34 @@ struct {								\
 
 struct event_base;
 #ifndef EVENT_NO_STRUCT
+// 将 I/O, 信号, 定时器三种事件统一封装为一个 event
 struct event {
-  TAILQ_ENTRY (event) ev_next;
-  TAILQ_ENTRY (event) ev_active_next;
-  TAILQ_ENTRY (event) ev_signal_next;
+  TAILQ_ENTRY (event) ev_next;  // I/O 事件队列
+  TAILQ_ENTRY (event) ev_active_next; // 就绪事件队列
+  TAILQ_ENTRY (event) ev_signal_next; // 信号事件队列
+  // 定时事件在小根堆中的索引
   unsigned int min_heap_idx;	/* for managing timeouts */
 
-  struct event_base *ev_base;
+  struct event_base *ev_base; // event 所属的 Reactor
 
-  int ev_fd;
-  short ev_events;
-  short ev_ncalls;  // 事件就绪执行时, 调用 ev_callback 的次数, 通常为 1
+  int ev_fd;  // I/O 事件绑定的文件描述符 / 信号事件绑定的信号
+  short ev_events;  // I/O, 信号, 定时器. 见 EV_TIMEOUT 等宏定义
+  short ev_ncalls;  // 就绪事件执行时, 调用 ev_callback 的次数, 通常为 1
   // 指针, 通常指向 ev_ncalls 或 NULL
   short *ev_pncalls;	/* Allows deletes in callback */
 
-  struct timeval ev_timeout;  // 事件超时时间
+  struct timeval ev_timeout;  // 定时事件超时时间
 
-  // 优先级, 越小优先级越高
+  // event 优先级, 越小优先级越高
   int ev_pri;		/* smaller numbers are higher priority */
 
+  // event 回调函数, (ev_fd, ev_events, ev_arg)
   void (*ev_callback)(int, short, void *arg);
   void *ev_arg;
 
-  // 记录当前激活事件的类型
+  // 调用回调函数时, 传递给回调函数, 保存回调函数的返回值
   int ev_res;		/* result passed to event callback */
-  int ev_flags;
+  int ev_flags; // event 当前状态
 };
 #else
 struct event;
@@ -654,11 +656,7 @@ int event_pending(struct event *ev, short event, struct timeval *tv);
   @return 1 if the structure has been initialized, or 0 if it has not been
           initialized
  */
-#ifdef WIN32
-#define event_initialized(ev)		((ev)->ev_flags & EVLIST_INIT && (ev)->ev_fd != (int)INVALID_HANDLE_VALUE)
-#else
 #define event_initialized(ev)		((ev)->ev_flags & EVLIST_INIT)
-#endif
 
 
 /**

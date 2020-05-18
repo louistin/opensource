@@ -103,6 +103,8 @@ int min_heap_erase(min_heap_t* s, struct event* e)
     return -1;
 }
 
+// 这里判断 s->a < n 时
+// 执行内存重新分配, 原则是原来内存不为空, 则扩大为原来的两倍; 原来为空则置为 MAX(n, 8)
 int min_heap_reserve(min_heap_t* s, unsigned n)
 {
     if(s->a < n)

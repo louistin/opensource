@@ -35,42 +35,44 @@ extern "C" {
 #include "min_heap.h"
 #include "evsignal.h"
 
+// I/O 多路复用机制相关信息
 struct eventop {
   const char *name;
-  void *(*init)(struct event_base *);
-  int (*add)(void *, struct event *);
-  int (*del)(void *, struct event *);
-  int (*dispatch)(struct event_base *, void *, struct timeval *);
-  void (*dealloc)(struct event_base *, void *);
+  void *(*init)(struct event_base *); // 初始化
+  int (*add)(void *, struct event *); // 注册事件
+  int (*del)(void *, struct event *); // 删除事件
+  int (*dispatch)(struct event_base *, void *, struct timeval *); // 事件分发
+  void (*dealloc)(struct event_base *, void *); // 注销, 释放资源
   /* set if we need to reinitialize the event base */
   int need_reinit;
 };
 
 struct event_base {
-  const struct eventop *evsel;
-  void *evbase;
-  // event 数目
+  const struct eventop *evsel;  // I/O 多路复用机制的封装, eventops[] 数组中的一项
+  void *evbase; // I/O 多路复用机制的一个实例, 执行具体任务. 由 evsel->init() 初始化
+  // 该 event_base 上的总 event 数目
   int event_count;		/* counts number of total events */
-  // event 就绪数目
+  // 该 event_base 上的总就绪 event 数目
   int event_count_active;	/* counts number of active events */
 
   int event_gotterm;		/* Set to terminate loop */
   int event_break;		/* Set to terminate loop immediately */
 
   /* active event management */
+  // 指针数组, activequeues[proiority] 指向优先级为 proiority 的链表
   struct event_list **activequeues; // 就绪队列数组, 数组下标就是优先级, 越小优先级越高
   int nactivequeues;  // 就绪队列数
 
-  // 事件信号句柄信息
+  // 管理信号事件
   /* signal handling info */
   struct evsignal_info sig;
 
-  struct event_list eventqueue;
-  struct timeval event_tv;
+  struct event_list eventqueue; // 队列链表, 保存所有注册事件 event 的指针
+  struct timeval event_tv; // 时间管理
 
-  struct min_heap timeheap;
+  struct min_heap timeheap; // 管理定时事件小根堆
 
-  struct timeval tv_cache;
+  struct timeval tv_cache;  // 时间管理
 };
 
 /* Internal use only: Functions that might be missing from <sys/queue.h> */
