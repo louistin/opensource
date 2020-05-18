@@ -116,22 +116,26 @@ static void *epoll_init(struct event_base *base) {
 
   // 环境变量设置 EVENT_NOEPOLL 时, 需要禁用 EPOLL
   /* Disable epollueue when this environment variable is set */
-  if (evutil_getenv("EVENT_NOEPOLL"))
+  if (evutil_getenv("EVENT_NOEPOLL")) {
     return (NULL);
+  }
 
   // 调用 epoll 系统调用, 创建 epfd 句柄, 告诉内核这个监听的数目为32000, 其中包含 epfd
   /* Initalize the kernel queue */
   if ((epfd = epoll_create(32000)) == -1) {
-    if (errno != ENOSYS)
+    if (errno != ENOSYS) {
       event_warn("epoll_create");
+    }
+
     return (NULL);
   }
 
   // TODO: 暂时这里还不是很明白
   FD_CLOSEONEXEC(epfd);
 
-  if (!(epollop = calloc(1, sizeof(struct epollop))))
+  if (!(epollop = calloc(1, sizeof(struct epollop)))) {
     return (NULL);
+  }
 
   epollop->epfd = epfd;
 
@@ -158,9 +162,7 @@ static void *epoll_init(struct event_base *base) {
   return (epollop);
 }
 
-static int
-epoll_recalc(struct event_base *base, void *arg, int max)
-{
+static int epoll_recalc(struct event_base *base, void *arg, int max) {
   struct epollop *epollop = arg;
 
   if (max >= epollop->nfds) {
@@ -168,8 +170,9 @@ epoll_recalc(struct event_base *base, void *arg, int max)
     int nfds;
 
     nfds = epollop->nfds;
-    while (nfds <= max)
+    while (nfds <= max) {
       nfds <<= 1;
+    }
 
     fds = realloc(epollop->fds, nfds * sizeof(struct evepoll));
     if (fds == NULL) {
@@ -177,56 +180,68 @@ epoll_recalc(struct event_base *base, void *arg, int max)
       return (-1);
     }
     epollop->fds = fds;
-    memset(fds + epollop->nfds, 0,
-        (nfds - epollop->nfds) * sizeof(struct evepoll));
+    memset(fds + epollop->nfds, 0, (nfds - epollop->nfds) * sizeof(struct evepoll));
     epollop->nfds = nfds;
   }
 
   return (0);
 }
 
-static int
-epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
-{
+// 监听事件发生, 并将就绪事件添加到就绪事件队列
+static int epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv) {
   struct epollop *epollop = arg;
   struct epoll_event *events = epollop->events;
   struct evepoll *evep;
   int i, res, timeout = -1;
 
-  if (tv != NULL)
+  if (tv != NULL) {
+    // 转换为毫秒, +999 是为了防止舍位
     timeout = tv->tv_sec * 1000 + (tv->tv_usec + 999) / 1000;
+  }
 
+  // 设置最大超时时间
   if (timeout > MAX_EPOLL_TIMEOUT_MSEC) {
     /* Linux kernels can wait forever if the timeout is too big;
      * see comment on MAX_EPOLL_TIMEOUT_MSEC. */
     timeout = MAX_EPOLL_TIMEOUT_MSEC;
   }
 
+  // 监听事件发生
   res = epoll_wait(epollop->epfd, events, epollop->nevents, timeout);
-
   if (res == -1) {
-    if (errno != EINTR) {
+    if (errno != EINTR) { // EINTR 系统中断信号
       event_warn("epoll_wait");
       return (-1);
     }
 
+    // 由于信号事件发生中断, 处理信号事件
     evsignal_process(base);
     return (0);
+
   } else if (base->sig.evsignal_caught) {
+    // 有信号事件发生, 处理信号事件
     evsignal_process(base);
   }
 
   event_debug(("%s: epoll_wait reports %d", __func__, res));
 
+  // 处理就绪事件
   for (i = 0; i < res; i++) {
-    int what = events[i].events;
+    int what = events[i].events;  // 就绪类型
     struct event *evread = NULL, *evwrite = NULL;
-    int fd = events[i].data.fd;
+    int fd = events[i].data.fd; // event 的文件描述符
 
-    if (fd < 0 || fd >= epollop->nfds)
+    if (fd < 0 || fd >= epollop->nfds) {
       continue;
-    evep = &epollop->fds[fd];
+    }
 
+    evep = &epollop->fds[fd]; // 取出 fd 对应的读写事件
+
+    // TODO: 这一段需要后面再细究下
+    // EPOLLHUP 文件描述符被挂断
+    // EPOLLERR 文件描述符发生错误
+    // EPOLLIN 文件描述符可读
+    // EPOLLOUT 文件描述符可写
     if (what & (EPOLLHUP|EPOLLERR)) {
       evread = evep->evread;
       evwrite = evep->evwrite;
@@ -240,23 +255,28 @@ epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
       }
     }
 
-    if (!(evread||evwrite))
+    if (!(evread||evwrite)) {
       continue;
+    }
 
-    if (evread != NULL)
+    // 添加 event 到就绪事件队列中
+    if (evread != NULL) {
       event_active(evread, EV_READ, 1);
-    if (evwrite != NULL)
+    }
+
+    if (evwrite != NULL) {
       event_active(evwrite, EV_WRITE, 1);
+    }
   }
 
+  // 注册事件全部就绪, 将 events 数组扩大为原来的两倍
   if (res == epollop->nevents && epollop->nevents < MAX_NEVENTS) {
     /* We used all of the event space this time.  We should
        be ready for more events next time. */
     int new_nevents = epollop->nevents * 2;
     struct epoll_event *new_events;
 
-    new_events = realloc(epollop->events,
-        new_nevents * sizeof(struct epoll_event));
+    new_events = realloc(epollop->events, new_nevents * sizeof(struct epoll_event));
     if (new_events) {
       epollop->events = new_events;
       epollop->nevents = new_nevents;
@@ -267,23 +287,24 @@ epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv)
 }
 
 
-static int
-epoll_add(void *arg, struct event *ev)
-{
+static int epoll_add(void *arg, struct event *ev) {
   struct epollop *epollop = arg;
   struct epoll_event epev = {0, {0}};
   struct evepoll *evep;
   int fd, op, events;
 
-  if (ev->ev_events & EV_SIGNAL)
+  if (ev->ev_events & EV_SIGNAL) {
     return (evsignal_add(ev));
+  }
 
   fd = ev->ev_fd;
   if (fd >= epollop->nfds) {
     /* Extent the file descriptor array as necessary */
-    if (epoll_recalc(ev->ev_base, epollop, fd) == -1)
+    if (epoll_recalc(ev->ev_base, epollop, fd) == -1) {
       return (-1);
+    }
   }
+
   evep = &epollop->fds[fd];
   op = EPOLL_CTL_ADD;
   events = 0;
@@ -296,28 +317,33 @@ epoll_add(void *arg, struct event *ev)
     op = EPOLL_CTL_MOD;
   }
 
-  if (ev->ev_events & EV_READ)
+  if (ev->ev_events & EV_READ) {
     events |= EPOLLIN;
-  if (ev->ev_events & EV_WRITE)
+  }
+
+  if (ev->ev_events & EV_WRITE) {
     events |= EPOLLOUT;
+  }
 
   epev.data.fd = fd;
   epev.events = events;
-  if (epoll_ctl(epollop->epfd, op, ev->ev_fd, &epev) == -1)
-      return (-1);
+  if (epoll_ctl(epollop->epfd, op, ev->ev_fd, &epev) == -1) {
+    return (-1);
+  }
 
   /* Update events responsible */
-  if (ev->ev_events & EV_READ)
+  if (ev->ev_events & EV_READ) {
     evep->evread = ev;
-  if (ev->ev_events & EV_WRITE)
+  }
+
+  if (ev->ev_events & EV_WRITE) {
     evep->evwrite = ev;
+  }
 
   return (0);
 }
 
-static int
-epoll_del(void *arg, struct event *ev)
-{
+static int epoll_del(void *arg, struct event *ev) {
   struct epollop *epollop = arg;
   struct epoll_event epev = {0, {0}};
   struct evepoll *evep;
@@ -366,9 +392,7 @@ epoll_del(void *arg, struct event *ev)
   return (0);
 }
 
-static void
-epoll_dealloc(struct event_base *base, void *arg)
-{
+static void epoll_dealloc(struct event_base *base, void *arg) {
   struct epollop *epollop = arg;
 
   evsignal_dealloc(base);
