@@ -175,17 +175,17 @@ extern "C" {
 #include <evutil.h>
 
 // event.evflags
-// event 在 time 堆中
+// event 在 time 堆 event_base.timeheap 中
 #define EVLIST_TIMEOUT	0x01
-// event 在已注册事件链表中
+// event 在已注册事件队列 event_base.eventqueue 中
 #define EVLIST_INSERTED	0x02
 // 未使用
 #define EVLIST_SIGNAL	0x04
-// event 在就绪链表中
+// event 在就绪链表中 event_base.activequeues
 #define EVLIST_ACTIVE	0x08
 // 内部使用标记
 #define EVLIST_INTERNAL	0x10
-// event 已被初始化
+// event 不属于上面任何一个容器, 还是游离态
 #define EVLIST_INIT	0x80
 
 /* EVLIST_X_ Private space: 0x1000-0xf000 */

@@ -60,6 +60,7 @@ struct event_base {
 
   /* active event management */
   // 指针数组, activequeues[proiority] 指向优先级为 proiority 的链表
+  // 所有被监控事件就绪 event 都被插入这个 queue, 并在 event.ev_flags 追加 EVLIST_ACTIVE 标志
   struct event_list **activequeues; // 就绪队列数组, 数组下标就是优先级, 越小优先级越高
   int nactivequeues;  // 就绪队列数
 
@@ -67,9 +68,11 @@ struct event_base {
   /* signal handling info */
   struct evsignal_info sig;
 
+  // 所有 add 到 base 的 event 都插入到这个 queue, 并在 event.ev_flags 追加 EVLIST_INSERT 标志
   struct event_list eventqueue; // 队列链表, 保存所有注册事件 event 的指针
   struct timeval event_tv; // 时间管理
 
+  // 超时 event 管理, min_heap[0] 存放第一个最快要超时的 event 指针
   struct min_heap timeheap; // 管理定时事件小根堆
 
   struct timeval tv_cache;  // 时间管理
