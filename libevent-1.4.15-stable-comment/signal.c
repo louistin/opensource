@@ -64,6 +64,7 @@ static void evsignal_handler(int sig);
 #define error_is_eagain(err) ((err) == EAGAIN)
 
 /* Callback for when the signal handler write a byte to our signaling socket */
+// socket pair socket 可读事件处理回调函数
 static void evsignal_cb(int fd, short what, void *arg) {
   static char signals[1];
   ssize_t n;
@@ -94,6 +95,7 @@ int evsignal_init(struct event_base *base) {
    * pair to wake up our event loop.  The event loop then scans for
    * signals that got delivered.
    */
+  // MAJOR: 创建 socket pair, 使用其将信号事件转化为 I/O 事件处理
   if (evutil_socketpair(AF_UNIX, SOCK_STREAM, 0, base->sig.ev_signal_pair) == -1) {
     event_err(1, "%s: socketpair", __func__);
     return -1;
@@ -106,7 +108,7 @@ int evsignal_init(struct event_base *base) {
   base->sig.sh_old_max = 0;
   base->sig.evsignal_caught = 0;
   memset(&base->sig.evsigcaught, 0, sizeof(sig_atomic_t)*NSIG);
-  // 初始化信号事件链表
+  // 初始化信号事件链表, 将所有事件都插入到链表中, NSIG 32
   /* initialize the queues for all events */
   for (i = 0; i < NSIG; ++i) {
     TAILQ_INIT(&base->sig.evsigevents[i]);
@@ -115,7 +117,8 @@ int evsignal_init(struct event_base *base) {
   evutil_make_socket_nonblocking(base->sig.ev_signal_pair[0]);
   evutil_make_socket_nonblocking(base->sig.ev_signal_pair[1]);
 
-  // MAJOR: 注册信号事件, ev_signal_pair[1] 可读时, 将会调用注册回调函数
+  // MAJOR: 注册信号 socket pair 的读 socket 的可读事件
+  // ev_signal_pair[0] 写入数据时, 读 socket 就会得到通知, 触发读事件
   event_set(&base->sig.ev_signal, base->sig.ev_signal_pair[1],
     EV_READ | EV_PERSIST, evsignal_cb, &base->sig.ev_signal);
 
@@ -127,6 +130,7 @@ int evsignal_init(struct event_base *base) {
 
 /* Helper: set the signal handler for evsignal to handler in base, so that
  * we can restore the original handler when we clear the current one. */
+// 为 evsignal 信号注册对应的操作回调函数
 int _evsignal_set_handler(struct event_base *base, int evsignal, void (*handler)(int)) {
 #ifdef HAVE_SIGACTION
   struct sigaction sa;
@@ -140,24 +144,29 @@ int _evsignal_set_handler(struct event_base *base, int evsignal, void (*handler)
    * resize saved signal handler array up to the highest signal number.
    * a dynamic array is used to keep footprint on the low side.
    */
+  // 当传入的人 evsignal 信号值比先前最大的信号值还大时, 需要为 struct sigaction **sh_old
+  // 指针数组重新分配空间
   if (evsignal >= sig->sh_old_max) {
-    int new_max = evsignal + 1;
+    int new_max = evsignal + 1; // 最大值 +1
     event_debug(("%s: evsignal (%d) >= sh_old_max (%d), resizing",
           __func__, evsignal, sig->sh_old_max));
+    // 调整 sig->sh_old 内存大小
     p = realloc(sig->sh_old, new_max * sizeof(*sig->sh_old));
     if (p == NULL) {
       event_warn("realloc");
       return (-1);
     }
 
+    // memset 新分配的内存块
     memset((char *)p + sig->sh_old_max * sizeof(*sig->sh_old),
         0, (new_max - sig->sh_old_max) * sizeof(*sig->sh_old));
 
-    sig->sh_old_max = new_max;
+    sig->sh_old_max = new_max;  // 更新最大信号值
     sig->sh_old = p;
   }
 
   /* allocate space for previous handler out of dynamic array */
+  // 为 evsignal 指针 struct sigaction 结构体分配空间
   sig->sh_old[evsignal] = malloc(sizeof *sig->sh_old[evsignal]);
   if (sig->sh_old[evsignal] == NULL) {
     event_warn("malloc");
@@ -168,9 +177,13 @@ int _evsignal_set_handler(struct event_base *base, int evsignal, void (*handler)
 #ifdef HAVE_SIGACTION
   memset(&sa, 0, sizeof(sa));
   sa.sa_handler = handler;
-  sa.sa_flags |= SA_RESTART;
-  sigfillset(&sa.sa_mask);
+  sa.sa_flags |= SA_RESTART;  // 如果信号中断了进程的某个系统调用, 则系统自动启动该系统调用
+  sigfillset(&sa.sa_mask);  // 初始化信号集, 将信号集设置为所有信号的集合
 
+  // evsignal 要捕获的信号类型
+  // sa 参数指定新的信号处理方式
+  // sig->sh_old[evsignal] 返回先前的信号处理方式
+  // MAJOR: 检查/修改指定信号相关联的处理动作
   if (sigaction(evsignal, &sa, sig->sh_old[evsignal]) == -1) {
     event_warn("sigaction");
     free(sig->sh_old[evsignal]);
@@ -190,6 +203,8 @@ int _evsignal_set_handler(struct event_base *base, int evsignal, void (*handler)
   return (0);
 }
 
+// 信号事件添加
+// event_add() 中, 针对信号事件, 需要执行信号事件添加
 int evsignal_add(struct event *ev) {
   int evsignal;
   struct event_base *base = ev->ev_base;
@@ -199,10 +214,17 @@ int evsignal_add(struct event *ev) {
     event_errx(1, "%s: EV_SIGNAL incompatible use", __func__);
   }
 
-  evsignal = EVENT_SIGNAL(ev);
+  evsignal = EVENT_SIGNAL(ev);  // 要绑定的信号
   assert(evsignal >= 0 && evsignal < NSIG);
+
   if (TAILQ_EMPTY(&sig->evsigevents[evsignal])) {
     event_debug(("%s: %p: changing signal handler", __func__, ev));
+
+    // MAJOR: 为信号事件注册对应的操作回调函数
+    // 通过 sigaction() 注册信号发生时的回调函数, 当有信号产生时, 首先就会触发这个回调函数
+    // 执行 evsignal_caught 标志位设置, 向 socket pair 写入数据等, 其中向可写 soket
+    // 写入数据又触发了 epoll_wait() I/O 事件, 在 epoll_dispatch() 中需要处理.
+    // 如此一来, 信号事件就转化为了 I/O 事件, 岂不美哉
     if (_evsignal_set_handler(base, evsignal, evsignal_handler) == -1) {
       return (-1);
     }
@@ -211,6 +233,7 @@ int evsignal_add(struct event *ev) {
     evsignal_base = base;
 
     if (!sig->ev_signal_added) {
+      // MAJOR: 将 ev_signal 加入 events 事件队列, 最终会注册到 epoll 监听列表中
       if (event_add(&sig->ev_signal, NULL)) {
         return (-1);
       }
@@ -272,6 +295,8 @@ int evsignal_del(struct event *ev) {
   return (_evsignal_restore_handler(ev->ev_base, EVENT_SIGNAL(ev)));
 }
 
+// 信号处理回调函数
+// evsignal_add() 中调用
 static void evsignal_handler(int sig) {
   int save_errno = errno;
 
@@ -282,18 +307,22 @@ static void evsignal_handler(int sig) {
     return;
   }
 
-  evsignal_base->sig.evsigcaught[sig]++;
-  evsignal_base->sig.evsignal_caught = 1;
+  evsignal_base->sig.evsigcaught[sig]++;  // sig 信号触发数 +1
+  // epoll_dispatch() 中根据此标志来处理信号事件, 将信号事件加入就绪队列
+  evsignal_base->sig.evsignal_caught = 1; // 标志设置为触发状态
 
 #ifndef HAVE_SIGACTION
   signal(sig, evsignal_handler);
 #endif
 
   /* Wake up our notification mechanism */
+  // MAJOR: 向 socket pair 可写端写入数据, 触发事件 epoll 可读端可读事件, 将信号事件转化为 I/O 事件
   send(evsignal_base->sig.ev_signal_pair[0], "a", 1, 0);
   errno = save_errno;
 }
 
+// epoll_wait() 被信号中断时, 处理信号事件
+// 从信号事件队列取出事件, 并将其加入就绪队列
 void evsignal_process(struct event_base *base) {
   struct evsignal_info *sig = &base->sig;
   struct event *ev, *next_ev;
@@ -301,6 +330,7 @@ void evsignal_process(struct event_base *base) {
   int i;
 
   base->sig.evsignal_caught = 0;
+  // 检查当前的未决信号, 遍历所有 NSIG 32 个信号
   for (i = 1; i < NSIG; ++i) {
     ncalls = sig->evsigcaught[i];
     if (ncalls == 0) {
@@ -311,10 +341,12 @@ void evsignal_process(struct event_base *base) {
 
     for (ev = TAILQ_FIRST(&sig->evsigevents[i]); ev != NULL; ev = next_ev) {
       next_ev = TAILQ_NEXT(ev, ev_signal_next);
+      // 非持续化事件从信号事件队列中删除
       if (!(ev->ev_events & EV_PERSIST)) {
         event_del(ev);
       }
 
+      // MAJOR: 将信号事件加入就绪队列
       event_active(ev, EV_SIGNAL, ncalls);
     }
   }

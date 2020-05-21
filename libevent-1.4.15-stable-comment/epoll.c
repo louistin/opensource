@@ -188,7 +188,7 @@ static int epoll_recalc(struct event_base *base, void *arg, int max) {
   return (0);
 }
 
-// 监听事件发生, 并将就绪事件添加到就绪事件队列
+// 监听事件发生, 并将就绪事件添加到就绪事件队列, 然后返回
 static int epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv) {
   struct epollop *epollop = arg;
   struct epoll_event *events = epollop->events;
@@ -215,12 +215,14 @@ static int epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv
       return (-1);
     }
 
-    // 由于信号事件发生中断, 处理信号事件
+    // 由于信号事件发生中断, 处理信号事件, 需要将信号事件加入就绪队列
+    // MAJOR: 处理信号事件
     evsignal_process(base);
     return (0);
 
   } else if (base->sig.evsignal_caught) {
-    // 有信号事件发生, 处理信号事件
+    // 有信号事件发生, 处理信号事件, 需要将信号事件加入就绪队列
+    // MAJOR: 处理信号事件
     evsignal_process(base);
   }
 
@@ -287,13 +289,14 @@ static int epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv
   return (0);
 }
 
-
+// event_add() 中, I/O 事件和信号事件需要将 event 注册到 I/O 多路复用要监听的事件队列中
 static int epoll_add(void *arg, struct event *ev) {
   struct epollop *epollop = arg;
   struct epoll_event epev = {0, {0}};
   struct evepoll *evep;
   int fd, op, events;
 
+  // MAJOR: 信号事件添加, 需要执行信号回调函数注册等
   if (ev->ev_events & EV_SIGNAL) {
     return (evsignal_add(ev));
   }
@@ -328,6 +331,7 @@ static int epoll_add(void *arg, struct event *ev) {
 
   epev.data.fd = fd;
   epev.events = events;
+  // MAJOR: 添加/修改文件描述符到 epoll 监听列表
   if (epoll_ctl(epollop->epfd, op, ev->ev_fd, &epev) == -1) {
     return (-1);
   }

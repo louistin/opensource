@@ -581,10 +581,10 @@ int event_base_loop(struct event_base *base, int flags) {
 
     // 就绪事件处理
     if (base->event_count_active) {
-      // MAJOR: 就绪事件处理
       // 根据优先级获取就绪事件队列, 从就绪事件队列中取出事件, 调用注册的回调函数处理事件
       // 处理时会寻找最高优先级(priority 最小) 的就绪事件链表, 优先处理
       // 然后处理链表中的所有就绪事件, 因此低优先级的就绪事件可能得不到及时处理
+      // MAJOR: 就绪事件处理
       event_process_active(base);
       // 每次处理一个事件后, event_count_active--
       // flag 默认传入为 0, 默认 dispatch 是不会推出的
@@ -803,6 +803,7 @@ int event_add(struct event *ev, const struct timeval *tv) {
   if ((ev->ev_events & (EV_READ|EV_WRITE|EV_SIGNAL)) &&
       !(ev->ev_flags & (EVLIST_INSERTED|EVLIST_ACTIVE))) {
     // 将 event 注册到 I/O 多路复用要监听的事件队列中
+    // 实际的调用需要到 epoll.c 中查找
     res = evsel->add(evbase, ev);
     if (res != -1) {
       // event 注册监听事件成功, 则将 event 添加到已注册事件队列
