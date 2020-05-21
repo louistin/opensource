@@ -47,19 +47,25 @@ struct eventop {
   int need_reinit;
 };
 
+// 相当于 Reactor, 内部使用 EventDemultiplexer 注册, 注销事件, 并运行事件循环, 当有事件
+// 就绪时, 调用注册事件的回调函数处理事件. evsel
 struct event_base {
+  // 封装了 epoll 相关接口信息, EventDemultiplexer
   const struct eventop *evsel;  // I/O 多路复用机制的封装, eventops[] 数组中的一项
-  void *evbase; // I/O 多路复用机制的一个实例, 执行具体任务. 由 evsel->init() 初始化
+  void *evbase; // I/O 多路复用机制的一个实例(eventop 实例对象), 执行具体任务. 由 evsel->init() 初始化
   // 该 event_base 上的总 event 数目
   int event_count;		/* counts number of total events */
   // 该 event_base 上的总就绪 event 数目
   int event_count_active;	/* counts number of active events */
 
+  // 中断循环标识
   int event_gotterm;		/* Set to terminate loop */
+  // 中断循环标识
   int event_break;		/* Set to terminate loop immediately */
 
   /* active event management */
-  // 指针数组, activequeues[proiority] 指向优先级为 proiority 的链表
+  // 指针数组, activequeues[proiority] 指向优先级为 proiority 的链表, 链表的每个节点都
+  //   指向一个优先级为 priority 的就绪事件 event
   // 所有被监控事件就绪 event 都被插入这个 queue, 并在 event.ev_flags 追加 EVLIST_ACTIVE 标志
   struct event_list **activequeues; // 就绪队列数组, 数组下标就是优先级, 越小优先级越高
   int nactivequeues;  // 就绪队列数

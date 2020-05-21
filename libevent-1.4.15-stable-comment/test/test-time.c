@@ -6,10 +6,6 @@
 #include "config.h"
 #endif
 
-#ifdef WIN32
-#include <winsock2.h>
-#endif
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_SYS_TIME_H
@@ -32,19 +28,11 @@ int called = 0;
 
 struct event *ev[NEVENT];
 
-static int
-rand_int(int n)
-{
-#ifdef WIN32
-  return (int)(rand() * n);
-#else
+static int rand_int(int n) {
   return (int)(random() % n);
-#endif
 }
 
-static void
-time_cb(int fd, short event, void *arg)
-{
+static void time_cb(int fd, short event, void *arg) {
   struct timeval tv;
   int i, j;
 
@@ -63,9 +51,7 @@ time_cb(int fd, short event, void *arg)
   }
 }
 
-int
-main (int argc, char **argv)
-{
+int main (int argc, char **argv) {
   struct timeval tv;
   int i;
 
@@ -76,6 +62,7 @@ main (int argc, char **argv)
     ev[i] = malloc(sizeof(struct event));
 
     /* Initalize one event */
+    // 等价于 event_set(ev[i], -1, EV_TIMEOUT, time_cb, ev[i]);
     evtimer_set(ev[i], time_cb, ev[i]);
     tv.tv_sec = 0;
     tv.tv_usec = rand_int(50000);

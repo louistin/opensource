@@ -29,11 +29,6 @@
 #include "config.h"
 #endif
 
-#ifdef WIN32
-#include <winsock2.h>
-#include <windows.h>
-#endif
-
 #ifdef HAVE_VASPRINTF
 /* If we have vasprintf, we need to define this before we include stdio.h. */
 #define _GNU_SOURCE
@@ -66,9 +61,7 @@
 #include "evutil.h"
 #include "./log.h"
 
-struct evbuffer *
-evbuffer_new(void)
-{
+struct evbuffer *evbuffer_new(void) {
   struct evbuffer *buffer;
 
   buffer = calloc(1, sizeof(struct evbuffer));
@@ -76,9 +69,7 @@ evbuffer_new(void)
   return (buffer);
 }
 
-void
-evbuffer_free(struct evbuffer *buffer)
-{
+void evbuffer_free(struct evbuffer *buffer) {
   if (buffer->orig_buffer != NULL)
     free(buffer->orig_buffer);
   free(buffer);
@@ -97,9 +88,7 @@ evbuffer_free(struct evbuffer *buffer)
   (x)->off = (y)->off; \
 } while (0)
 
-int
-evbuffer_add_buffer(struct evbuffer *outbuf, struct evbuffer *inbuf)
-{
+int evbuffer_add_buffer(struct evbuffer *outbuf, struct evbuffer *inbuf) {
   int res;
 
   /* Short cut for better performance */
@@ -134,9 +123,7 @@ evbuffer_add_buffer(struct evbuffer *outbuf, struct evbuffer *inbuf)
   return (res);
 }
 
-int
-evbuffer_add_vprintf(struct evbuffer *buf, const char *fmt, va_list ap)
-{
+int evbuffer_add_vprintf(struct evbuffer *buf, const char *fmt, va_list ap) {
   char *buffer;
   size_t space;
   size_t oldoff = buf->off;
@@ -176,9 +163,7 @@ evbuffer_add_vprintf(struct evbuffer *buf, const char *fmt, va_list ap)
   /* NOTREACHED */
 }
 
-int
-evbuffer_add_printf(struct evbuffer *buf, const char *fmt, ...)
-{
+int evbuffer_add_printf(struct evbuffer *buf, const char *fmt, ...) {
   int res = -1;
   va_list ap;
 
@@ -191,9 +176,7 @@ evbuffer_add_printf(struct evbuffer *buf, const char *fmt, ...)
 
 /* Reads data from an event buffer and drains the bytes read */
 
-int
-evbuffer_remove(struct evbuffer *buf, void *data, size_t datlen)
-{
+int evbuffer_remove(struct evbuffer *buf, void *data, size_t datlen) {
   size_t nread = datlen;
   if (nread >= buf->off)
     nread = buf->off;
@@ -209,9 +192,7 @@ evbuffer_remove(struct evbuffer *buf, void *data, size_t datlen)
  * The returned buffer needs to be freed by the called.
  */
 
-char *
-evbuffer_readline(struct evbuffer *buffer)
-{
+char *evbuffer_readline(struct evbuffer *buffer) {
   u_char *data = EVBUFFER_DATA(buffer);
   size_t len = EVBUFFER_LENGTH(buffer);
   char *line;
@@ -251,10 +232,8 @@ evbuffer_readline(struct evbuffer *buffer)
 }
 
 
-char *
-evbuffer_readln(struct evbuffer *buffer, size_t *n_read_out,
-    enum evbuffer_eol_style eol_style)
-{
+char * evbuffer_readln(struct evbuffer *buffer, size_t *n_read_out,
+    enum evbuffer_eol_style eol_style) {
   u_char *data = EVBUFFER_DATA(buffer);
   u_char *start_of_eol, *end_of_eol;
   size_t len = EVBUFFER_LENGTH(buffer);
@@ -338,9 +317,7 @@ evbuffer_readln(struct evbuffer *buffer, size_t *n_read_out,
 
 /* Adds data to an event buffer */
 
-static void
-evbuffer_align(struct evbuffer *buf)
-{
+static void evbuffer_align(struct evbuffer *buf) {
   memmove(buf->orig_buffer, buf->buffer, buf->off);
   buf->buffer = buf->orig_buffer;
   buf->misalign = 0;
@@ -352,9 +329,7 @@ evbuffer_align(struct evbuffer *buf)
 
 /* Expands the available space in the event buffer to at least datlen */
 
-int
-evbuffer_expand(struct evbuffer *buf, size_t datlen)
-{
+int evbuffer_expand(struct evbuffer *buf, size_t datlen) {
   size_t used = buf->misalign + buf->off;
   size_t need;
 
@@ -401,9 +376,7 @@ evbuffer_expand(struct evbuffer *buf, size_t datlen)
   return (0);
 }
 
-int
-evbuffer_add(struct evbuffer *buf, const void *data, size_t datlen)
-{
+int evbuffer_add(struct evbuffer *buf, const void *data, size_t datlen) {
   size_t used = buf->misalign + buf->off;
   size_t oldoff = buf->off;
 
@@ -421,9 +394,7 @@ evbuffer_add(struct evbuffer *buf, const void *data, size_t datlen)
   return (0);
 }
 
-void
-evbuffer_drain(struct evbuffer *buf, size_t len)
-{
+void evbuffer_drain(struct evbuffer *buf, size_t len) {
   size_t oldoff = buf->off;
 
   if (len >= buf->off) {
@@ -451,20 +422,13 @@ evbuffer_drain(struct evbuffer *buf, size_t len)
 
 #define EVBUFFER_MAX_READ	4096
 
-int
-evbuffer_read(struct evbuffer *buf, int fd, int howmuch)
-{
+int evbuffer_read(struct evbuffer *buf, int fd, int howmuch) {
   u_char *p;
   size_t oldoff = buf->off;
   int n = EVBUFFER_MAX_READ;
 
 #if defined(FIONREAD)
-#ifdef WIN32
-  long lng = n;
-  if (ioctlsocket(fd, FIONREAD, &lng) == -1 || (n=lng) <= 0) {
-#else
   if (ioctl(fd, FIONREAD, &n) == -1 || n <= 0) {
-#endif
     n = EVBUFFER_MAX_READ;
   } else if (n > EVBUFFER_MAX_READ && n > howmuch) {
     /*
@@ -490,11 +454,7 @@ evbuffer_read(struct evbuffer *buf, int fd, int howmuch)
   /* We can append new data at this point */
   p = buf->buffer + buf->off;
 
-#ifndef WIN32
-  n = read(fd, p, howmuch);
-#else
-  n = recv(fd, p, howmuch, 0);
-#endif
+  n = read(fd, p, howmuch)
   if (n == -1)
     return (-1);
   if (n == 0)
@@ -509,16 +469,10 @@ evbuffer_read(struct evbuffer *buf, int fd, int howmuch)
   return (n);
 }
 
-int
-evbuffer_write(struct evbuffer *buffer, int fd)
-{
+int evbuffer_write(struct evbuffer *buffer, int fd) {
   int n;
 
-#ifndef WIN32
   n = write(fd, buffer->buffer, buffer->off);
-#else
-  n = send(fd, buffer->buffer, buffer->off, 0);
-#endif
   if (n == -1)
     return (-1);
   if (n == 0)
@@ -528,9 +482,7 @@ evbuffer_write(struct evbuffer *buffer, int fd)
   return (n);
 }
 
-u_char *
-evbuffer_find(struct evbuffer *buffer, const u_char *what, size_t len)
-{
+u_char *evbuffer_find(struct evbuffer *buffer, const u_char *what, size_t len) {
   u_char *search = buffer->buffer, *end = search + buffer->off;
   u_char *p;
 
@@ -548,8 +500,7 @@ evbuffer_find(struct evbuffer *buffer, const u_char *what, size_t len)
 
 void evbuffer_setcb(struct evbuffer *buffer,
     void (*cb)(struct evbuffer *, size_t, size_t, void *),
-    void *cbarg)
-{
+    void *cbarg){
   buffer->cb = cb;
   buffer->cbarg = cbarg;
 }

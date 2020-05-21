@@ -57,15 +57,7 @@ int evutil_socketpair(int family, int type, int protocol, int fd[2]) {
   return socketpair(family, type, protocol, fd);
 }
 
-int
-evutil_make_socket_nonblocking(int fd)
-{
-#ifdef WIN32
-  {
-    unsigned long nonblocking = 1;
-    ioctlsocket(fd, FIONBIO, (unsigned long*) &nonblocking);
-  }
-#else
+int evutil_make_socket_nonblocking(int fd) {
   {
     int flags;
     if ((flags = fcntl(fd, F_GETFL, NULL)) < 0) {
@@ -77,7 +69,7 @@ evutil_make_socket_nonblocking(int fd)
       return -1;
     }
   }
-#endif
+
   return 0;
 }
 

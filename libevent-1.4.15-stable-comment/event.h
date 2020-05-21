@@ -185,17 +185,18 @@ extern "C" {
 #define EVLIST_ACTIVE	0x08
 // 内部使用标记
 #define EVLIST_INTERNAL	0x10
-// event 不属于上面任何一个容器, 还是游离态
+// event 已初始化, 但不属于上面任何一个容器, 还是游离态
 #define EVLIST_INIT	0x80
 
 /* EVLIST_X_ Private space: 0x1000-0xf000 */
 #define EVLIST_ALL	(0xf000 | 0x9f)
 
 // event.ev_events
-#define EV_TIMEOUT	0x01
-#define EV_READ		0x02
-#define EV_WRITE	0x04
-#define EV_SIGNAL	0x08
+// 信号和 I/O 事件不能同时设置
+#define EV_TIMEOUT	0x01    // 定时事件
+#define EV_READ		0x02      // I/O 事件
+#define EV_WRITE	0x04      // I/O 事件
+#define EV_SIGNAL	0x08      // 信号
 // 持久化事件
 #define EV_PERSIST	0x10	/* Persistant event */
 
@@ -211,15 +212,19 @@ struct {								\
 
 struct event_base;
 #ifndef EVENT_NO_STRUCT
+
+// 相当于 EventHandler, 提供一组接口, 每个接口对应一种类型事件, 供 Reactor 在相应的事件发
+// 生时调用, 执行相应的事件处理. ev_callback
 // 将 I/O, 信号, 定时器三种事件统一封装为一个 event
 struct event {
-  TAILQ_ENTRY (event) ev_next;  // I/O 事件队列
-  TAILQ_ENTRY (event) ev_active_next; // 就绪事件队列
-  TAILQ_ENTRY (event) ev_signal_next; // 信号事件队列
+  // 双向链表节点指针
+  TAILQ_ENTRY (event) ev_next;  // I/O 事件在队列中的位置
+  TAILQ_ENTRY (event) ev_active_next; // event 在就绪事件队列中的位置
+  TAILQ_ENTRY (event) ev_signal_next; // 信号事件在队列中的位置
   // 定时事件在小根堆中的索引
   unsigned int min_heap_idx;	/* for managing timeouts */
 
-  struct event_base *ev_base; // event 所属的 Reactor
+  struct event_base *ev_base; // event 所属的实例 Reactor
 
   int ev_fd;  // I/O 事件绑定的文件描述符 / 信号事件绑定的信号
   short ev_events;  // I/O, 信号, 定时器. 见 EV_TIMEOUT 等宏定义
@@ -232,13 +237,15 @@ struct event {
   // event 优先级, 越小优先级越高
   int ev_pri;		/* smaller numbers are higher priority */
 
-  // event 回调函数, (ev_fd, ev_events, ev_arg)
+  // event 回调函数, (ev_fd, ev_events, ev_arg), 被 ev_base 调用执行事件处理程序
   void (*ev_callback)(int, short, void *arg);
-  void *ev_arg;
+  void *ev_arg; // event_set() 设置 event 时指定
 
   // 调用回调函数时, 传递给回调函数, 保存回调函数的返回值
+  // 记录了当前激活事件的类型
   int ev_res;		/* result passed to event callback */
-  int ev_flags; // event 当前状态
+  // EVLIST_TIMEOUT 等
+  int ev_flags; // 标记 event 信息的字段, 表明当前状态
 };
 #else
 struct event;

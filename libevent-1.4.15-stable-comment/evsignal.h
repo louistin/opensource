@@ -31,6 +31,7 @@ typedef void (*ev_sighandler_t)(int);
 
 struct evsignal_info {
   struct event ev_signal;
+  // 由 evutil_socketpair() 创建, 0 socket 负责写, 1 负责读
   int ev_signal_pair[2];
   int ev_signal_added;
   volatile sig_atomic_t evsignal_caught;

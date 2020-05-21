@@ -43,23 +43,15 @@
 #include <sys/ioccom.h>
 #endif
 
-#ifndef WIN32
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#endif
 
 #include <sys/queue.h>
 
-#ifndef WIN32
 #include <netinet/in.h>
 #include <netdb.h>
-#endif
-
-#ifdef WIN32
-#include <winsock2.h>
-#endif
 
 #include <assert.h>
 #include <ctype.h>
@@ -67,9 +59,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef WIN32
 #include <syslog.h>
-#endif
 #include <signal.h>
 #include <time.h>
 #ifdef HAVE_UNISTD_H
@@ -89,12 +79,6 @@
 #include "log.h"
 #include "http-internal.h"
 
-#ifdef WIN32
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
-#define strdup _strdup
-#endif
-
 #ifndef HAVE_GETNAMEINFO
 #define NI_MAXSERV 32
 #define NI_MAXHOST 1025
@@ -107,10 +91,8 @@
 #define NI_NUMERICSERV 2
 #endif
 
-static int
-fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host,
-  size_t hostlen, char *serv, size_t servlen, int flags)
-{
+static int fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host,
+  size_t hostlen, char *serv, size_t servlen, int flags) {
         struct sockaddr_in *sin = (struct sockaddr_in *)sa;
 
         if (serv != NULL) {

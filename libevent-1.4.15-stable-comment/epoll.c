@@ -157,6 +157,7 @@ static void *epoll_init(struct event_base *base) {
   }
   epollop->nfds = INITIAL_NFILES;
 
+  // 信号事件模块初始化
   evsignal_init(base);
 
   return (epollop);
@@ -206,7 +207,7 @@ static int epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv
     timeout = MAX_EPOLL_TIMEOUT_MSEC;
   }
 
-  // 监听事件发生
+  // MAJOR: 监听事件发生
   res = epoll_wait(epollop->epfd, events, epollop->nevents, timeout);
   if (res == -1) {
     if (errno != EINTR) { // EINTR 系统中断信号
@@ -225,7 +226,7 @@ static int epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv
 
   event_debug(("%s: epoll_wait reports %d", __func__, res));
 
-  // 处理就绪事件
+  // MAJOR: 处理就绪事件
   for (i = 0; i < res; i++) {
     int what = events[i].events;  // 就绪类型
     struct event *evread = NULL, *evwrite = NULL;
@@ -259,7 +260,7 @@ static int epoll_dispatch(struct event_base *base, void *arg, struct timeval *tv
       continue;
     }
 
-    // 添加 event 到就绪事件队列中
+    // MAJOR: 添加 event 到就绪事件队列中
     if (evread != NULL) {
       event_active(evread, EV_READ, 1);
     }
