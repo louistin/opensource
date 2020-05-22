@@ -131,6 +131,7 @@ static int gettime(struct event_base *base, struct timeval *tp) {
     return (0);
   }
 
+  // 如果支持 monotonic, 就用 clock_gettime 获取 monotonic 时间
 #if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
   if (use_monotonic) {
     struct timespec	ts;
@@ -144,6 +145,7 @@ static int gettime(struct event_base *base, struct timeval *tp) {
   }
 #endif
 
+  // 否则就是获取系统当前时间
   return (evutil_gettimeofday(tp, NULL));
 }
 
@@ -533,18 +535,18 @@ int event_base_loop(struct event_base *base, int flags) {
 
     tv_p = &tv;
     // 当前如果没有就绪事件, 获取接下来的最小等待时间
-    // 有就绪事件, 无需等待 epoll_wait, 清空定时器, 需要立刻返回
     if (!base->event_count_active && !(flags & EVLOOP_NONBLOCK)) {
-      // MAJOR: 根据定时器堆中最小超时时间计算 I/O 多路复用的最大等待时间 tv_p
       // 根据所有 timer 事件的最小超时时间来设置 epoll 的 timeout 时间, 当 epoll 返回时
-      // 再激活所有就绪的 timer 事件就可以了, 这样就将 timer 事件完美融合到 epoll 中
+      // 再激活所有就绪的 timer 事件就可以了, 这样就将 timer 事件完美融合到 epoll 中.
       // timeheap 获取最小值的时间复杂度为 O(1)
+      // MAJOR: 根据定时器堆中最小超时时间计算 I/O 多路复用的最大等待时间 tv_p
       timeout_next(base, &tv_p);
     } else {
       /*
        * if we have active events, we just poll new events
        * without waiting.
        */
+      // 有就绪事件, 无需等待 epoll_wait, 清空定时器, 需要立刻返回
       evutil_timerclear(&tv);
     }
 
@@ -556,6 +558,7 @@ int event_base_loop(struct event_base *base, int flags) {
     }
 
     // 更新 last wait time 时间
+    //
     /* update last old time */
     gettime(base, &base->event_tv);
     // 清除时间缓存
@@ -563,9 +566,9 @@ int event_base_loop(struct event_base *base, int flags) {
     base->tv_cache.tv_sec = 0;
 
     // 内部使用 epoll_wait() 等待事件, 仅处理读写事件, 信号事件在 evsignal_process() 处理
-    // MAJOR: 调用 I/O 多路复用, 监听事件, 将就绪事件添加到就绪事件队列
     // epoll_wait() 会阻塞 tv_p 时间, 超时或有事件就绪时, 函数返回,
     // 此时 base->nactivequeues 中就包含就绪事件
+    // MAJOR: 等待 I/O 事件就绪, 调用 I/O 多路复用, 监听事件, 将就绪事件添加到就绪事件队列
     res = evsel->dispatch(base, evbase, tv_p);
 
     if (res == -1) {
@@ -577,6 +580,7 @@ int event_base_loop(struct event_base *base, int flags) {
     gettime(base, &base->tv_cache);
 
     // 从 timeheap 小根堆中获取超时事件, 将其从 timeheap 中删除, 同时加入到就绪队列
+    // MAJOR: 处理超时事件, 将超时事件插入到就绪链表中
     timeout_process(base);
 
     // 就绪事件处理
@@ -944,16 +948,19 @@ static int timeout_next(struct event_base *base, struct timeval **tv_p) {
   }
 
   // 获取 base 时间, 有缓存优先使用缓存事件, 没有则获取当前时间
-  if (gettime(base, &now) == -1)
+  if (gettime(base, &now) == -1) {
     return (-1);
+  }
 
   // 事件超时时间小于等于当前时间, 即已经超时, 清除定时器
+  // 如果超时时间 <= 当前时间, 不能等待, 需要立即返回
   if (evutil_timercmp(&ev->ev_timeout, &now, <=)) {
     evutil_timerclear(tv);
     return (0);
   }
 
   // 事件未超时, 获取距离超时的剩余时间
+  // 等待的时间 = 当前时间 - 最小超时时间
   evutil_timersub(&ev->ev_timeout, &now, tv);
 
   assert(tv->tv_sec >= 0);

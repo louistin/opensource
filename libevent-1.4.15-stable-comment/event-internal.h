@@ -76,12 +76,12 @@ struct event_base {
 
   // 所有 add 到 base 的 event 都插入到这个 queue, 并在 event.ev_flags 追加 EVLIST_INSERT 标志
   struct event_list eventqueue; // 队列链表, 保存所有注册事件 event 的指针
-  struct timeval event_tv; // 时间管理
+  struct timeval event_tv; // 指示了 dispatch() 最新返回的时间, 也就是 I/O 事件就绪的事件
 
   // 超时 event 管理, min_heap[0] 存放第一个最快要超时的 event 指针
   struct min_heap timeheap; // 管理定时事件小根堆
 
-  struct timeval tv_cache;  // 时间管理
+  struct timeval tv_cache;  // 在 dispatch() 返回后被设置为当前系统时间, 它缓存了
 };
 
 /* Internal use only: Functions that might be missing from <sys/queue.h> */
