@@ -231,7 +231,7 @@ void elog_set_output_enabled(bool enabled) {
 #ifdef ELOG_COLOR_ENABLE
 /**
  * set log text color enable or disable
- * 
+ *
  * @param enabled TRUE: enable FALSE:disable
  */
 void elog_set_text_color_enabled(bool enabled) {
@@ -314,7 +314,7 @@ void elog_set_filter_kw(const char *keyword) {
 }
 
 /**
- * lock output 
+ * lock output
  */
 void elog_output_lock(void) {
     if (elog.output_lock_enabled) {
@@ -585,7 +585,7 @@ void elog_output(uint8_t level, const char *tag, const char *file, const char *f
         log_len += elog_strcpy(log_len, log_buf + log_len, "(");
         /* package time info */
         if (get_fmt_enabled(level, ELOG_FMT_DIR)) {
-            log_len += elog_strcpy(log_len, log_buf + log_len, FILENAME(file);
+            log_len += elog_strcpy(log_len, log_buf + log_len, FILENAME(file));
             if (get_fmt_enabled(level, ELOG_FMT_FUNC)) {
                 log_len += elog_strcpy(log_len, log_buf + log_len, " ");
             } else if (get_fmt_enabled(level, ELOG_FMT_LINE)) {

@@ -551,7 +551,7 @@ void elog_output(uint8_t level, const char *tag, const char *file, const char *f
 
     /* package time, process and thread info */
     if (get_fmt_enabled(level, ELOG_FMT_TIME | ELOG_FMT_DIR | ELOG_FMT_LINE)) {
-        log_len += elog_strcpy(log_len, log_buf + log_len, "[");
+        log_len += elog_strcpy(log_len, log_buf + log_len, "");
         /* package time info */
         if (get_fmt_enabled(level, ELOG_FMT_TIME)) {
             log_len += elog_strcpy(log_len, log_buf + log_len, elog_port_get_time());
