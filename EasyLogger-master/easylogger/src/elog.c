@@ -556,6 +556,22 @@ void elog_output(uint8_t level, const char *tag, const char *file,
          log_len += elog_strcpy(log_len, log_buf + log_len, " ");
          }
          */
+      /* package time, process and thread info */
+      if (get_fmt_enabled(level,
+                          ELOG_FMT_TIME | ELOG_FMT_DIR | ELOG_FMT_LINE)) {
+        log_len += elog_strcpy(log_len, log_buf + log_len, "");
+
+        /* package time info */
+        if (get_fmt_enabled(level, ELOG_FMT_DIR)) {
+          log_len += elog_strcpy(log_len, log_buf + log_len, " ");
+          log_len += elog_strcpy(log_len, log_buf + log_len, FILENAME(file));
+          if (get_fmt_enabled(level, ELOG_FMT_FUNC)) {
+            log_len += elog_strcpy(log_len, log_buf + log_len, " ");
+          } else if (get_fmt_enabled(level, ELOG_FMT_LINE)) {
+            log_len += elog_strcpy(log_len, log_buf + log_len, ":");
+          }
+        }
+      }
     }
 
     /* package thread info */
@@ -626,7 +642,7 @@ void elog_output(uint8_t level, const char *tag, const char *file,
     /* using max length */
     log_len = ELOG_LINE_BUF_SIZE;
   }
-  /* overflow check and reserve some space for CSI end sign and newline sign */
+/* overflow check and reserve some space for CSI end sign and newline sign */
 #ifdef ELOG_COLOR_ENABLE
   if (log_len + (sizeof(CSI_END) - 1) + newline_len > ELOG_LINE_BUF_SIZE) {
     /* using max length */
@@ -660,10 +676,10 @@ void elog_output(uint8_t level, const char *tag, const char *file,
   }
 #endif
 
-  // TODO: 禁止自动换行
-  /* package newline sign */
-  // log_len += elog_strcpy(log_len, log_buf + log_len, ELOG_NEWLINE_SIGN);
-  /* output log */
+// TODO: 禁止自动换行
+/* package newline sign */
+// log_len += elog_strcpy(log_len, log_buf + log_len, ELOG_NEWLINE_SIGN);
+/* output log */
 #if defined(ELOG_ASYNC_OUTPUT_ENABLE)
   extern void elog_async_output(uint8_t level, const char *log, size_t size);
   elog_async_output(level, log_buf, log_len);
