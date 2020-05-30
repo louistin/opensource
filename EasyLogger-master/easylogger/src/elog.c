@@ -558,51 +558,6 @@ void elog_output(uint8_t level, const char *tag, const char *file,
          */
     }
 
-<<<<<<< HEAD
-    /* package time info */
-    if (get_fmt_enabled(level, ELOG_FMT_DIR)) {
-      log_len += elog_strcpy(log_len, log_buf + log_len, " ");
-      log_len += elog_strcpy(log_len, log_buf + log_len, FILENAME(file));
-      if (get_fmt_enabled(level, ELOG_FMT_FUNC)) {
-        log_len += elog_strcpy(log_len, log_buf + log_len, " ");
-      } else if (get_fmt_enabled(level, ELOG_FMT_LINE)) {
-        log_len += elog_strcpy(log_len, log_buf + log_len, ":");
-      }
-=======
-    /* package time, process and thread info */
-    if (get_fmt_enabled(level, ELOG_FMT_TIME | ELOG_FMT_DIR | ELOG_FMT_LINE)) {
-        log_len += elog_strcpy(log_len, log_buf + log_len, "");
-        /* package time info */
-        if (get_fmt_enabled(level, ELOG_FMT_TIME)) {
-            log_len += elog_strcpy(log_len, log_buf + log_len, elog_port_get_time());
-            /*
-               if (get_fmt_enabled(level, ELOG_FMT_P_INFO | ELOG_FMT_T_INFO)) {
-               log_len += elog_strcpy(log_len, log_buf + log_len, " ");
-               }
-               */
-        }
-
-        /* package time info */
-        if (get_fmt_enabled(level, ELOG_FMT_DIR)) {
-            log_len += elog_strcpy(log_len, log_buf + log_len, " ");
-            log_len += elog_strcpy(log_len, log_buf + log_len, FILENAME(file));
-            if (get_fmt_enabled(level, ELOG_FMT_FUNC)) {
-                log_len += elog_strcpy(log_len, log_buf + log_len, " ");
-            } else if (get_fmt_enabled(level, ELOG_FMT_LINE)) {
-                log_len += elog_strcpy(log_len, log_buf + log_len, ":");
-            }
-        }
-
-        /* package thread info */
-        if (get_fmt_enabled(level, ELOG_FMT_LINE)) {
-            snprintf(line_num, ELOG_LINE_NUM_MAX_LEN, "%ld", line);
-            log_len += elog_strcpy(log_len, log_buf + log_len, line_num);
-        }
-
-        log_len += elog_strcpy(log_len, log_buf + log_len, "] ");
->>>>>>> 84db6752cbaa2d267223f42a550f1b3334eedcf9
-    }
-
     /* package thread info */
     if (get_fmt_enabled(level, ELOG_FMT_LINE)) {
       snprintf(line_num, ELOG_LINE_NUM_MAX_LEN, "%ld", line);
