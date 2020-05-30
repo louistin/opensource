@@ -29,14 +29,19 @@
 #ifndef __ELOG_H__
 #define __ELOG_H__
 
-#include <elog_cfg.h>
+#include "elog_cfg.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// 清除 __FILE__ 中的路径, 只保留函数名
+// windows #define filename(x) strrchr(x,'\\')?strrchr(x,'\\')+1:x
+#define FILENAME(x) strrchr(x,'/')?strrchr(x,'/')+1:x
 
 /* output log's level */
 #define ELOG_LVL_ASSERT                      0
@@ -277,6 +282,8 @@ size_t elog_async_get_line_log(char *log, size_t size);
 size_t elog_strcpy(size_t cur_len, char *dst, const char *src);
 size_t elog_cpyln(char *line, const char *log, size_t len);
 void *elog_memcpy(void *dst, const void *src, size_t count);
+
+int easylogger_init();
 
 #ifdef __cplusplus
 }
